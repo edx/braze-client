@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8']
+        toxenv: [quality, docs]
+    env:
+      RUNJSHINT: true
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+          architecture: x64
+      - run: pip install -r requirements/ci.txt
+      - name: Run tox
+        env:
+          TOXENV: ${{ matrix.toxenv }}
+        run: tox
+      - name: Run code coverage
+        run: codecov
