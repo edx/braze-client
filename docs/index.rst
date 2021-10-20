@@ -19,7 +19,6 @@ Contents:
    internationalization
    modules
    changelog
-   decisions/0001-purpose-of-this-repo
 
 
 Indices and tables

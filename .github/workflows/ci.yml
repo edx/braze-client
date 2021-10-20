@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.8']
-        toxenv: [quality, docs]
+        toxenv: [quality, docs, 'py38']
     env:
       RUNJSHINT: true
     steps:
