@@ -49,7 +49,6 @@ upgrade: ## update the requirements/*.txt files with the latest packages satisfy
 quality: ## check coding style with pycodestyle and pylint
 	touch tests/__init__.py
 	pylint braze tests test_utils manage.py *.py
-	rm tests/__init__.py
 	pycodestyle braze tests  *.py
 	pydocstyle braze tests *.py
 	isort --check-only --diff --recursive tests test_utils braze *.py test_settings.py
