@@ -241,6 +241,7 @@ class BrazeClient:
         recipient_subscription_state='all',
         reply_to=None,
         attachments=None,
+        override_frequency_capping=False
     ):
         """
         Send an email via Braze Rest API.
@@ -255,6 +256,7 @@ class BrazeClient:
             recipient_subscription_state (str): Subscription state of the users
             reply_to (str): Reply to address for email replies
             attachments (list): List of dicts with filename and url keys
+            override_frequency_capping (bool): ignore frequency_capping for campaigns, defaults to False
         Returns:
             response (dict): The response object
         """
@@ -288,7 +290,8 @@ class BrazeClient:
             'messages': {
                 'email': email
             },
-            'campaign_id': campaign_id
+            'campaign_id': campaign_id,
+            'override_frequency_capping': override_frequency_capping
         }
         return self._post_request(payload, MESSAGE_SEND_ENPOINT)
 
