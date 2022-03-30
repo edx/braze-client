@@ -8,14 +8,8 @@ from unittest import TestCase
 import ddt
 import responses
 
-from braze.client import (
-    CAMPAIGN_SEND_ENDPOINT,
-    EXPORT_ID_ENDPOINT,
-    MESSAGE_SEND_ENPOINT,
-    NEW_ALIAS_ENDPOINT,
-    USERS_TRACK_ENDPOINT,
-    BrazeClient,
-)
+from braze.client import BrazeClient
+from braze.constants import BrazeAPIEndpoints
 from braze.exceptions import (
     BrazeBadRequestError,
     BrazeClientError,
@@ -33,11 +27,11 @@ class BrazeClientTests(TestCase):
     Tests for Braze Client.
     """
     BRAZE_URL = 'http://braze-api-url.com'
-    EXPORT_ID_URL = BRAZE_URL + EXPORT_ID_ENDPOINT
-    NEW_ALIAS_URL = BRAZE_URL + NEW_ALIAS_ENDPOINT
-    USERS_TRACK_URL = BRAZE_URL + USERS_TRACK_ENDPOINT
-    MESSAGE_SEND_URL = BRAZE_URL + MESSAGE_SEND_ENPOINT
-    CAMPAIGN_SEND_URL = BRAZE_URL + CAMPAIGN_SEND_ENDPOINT
+    EXPORT_ID_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_IDS
+    NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
+    USERS_TRACK_URL = BRAZE_URL + BrazeAPIEndpoints.TRACK_USER
+    MESSAGE_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_MESSAGE
+    CAMPAIGN_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CAMPAIGN
 
     def _get_braze_client(self):
         return BrazeClient(
@@ -46,10 +40,11 @@ class BrazeClientTests(TestCase):
             app_id='app_id'
         )
 
-    def _mock_braze_error_response(self, status, url=EXPORT_ID_URL):
+    def _mock_braze_error_response(self, status, headers=None, url=EXPORT_ID_URL):
         responses.add(
             responses.POST,
             url,
+            headers=headers or {},
             json={"message": "error"},
             status=status
         )
@@ -448,11 +443,18 @@ class BrazeClientTests(TestCase):
         Tests that BrazeRateLimitError is raised if a 429 status
         code is returned.
         """
-        self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=429)
+        rate_limit_reset = "1648585423"
+        self._mock_braze_error_response(
+            status=429,
+            url=self.EXPORT_ID_URL,
+            headers={"X-RateLimit-Reset": rate_limit_reset}
+        )
 
-        with self.assertRaises(BrazeRateLimitError):
+        with self.assertRaises(BrazeRateLimitError) as exception_context_manager:
             client = self._get_braze_client()
             client.get_braze_external_id(email='test@example.com')
+
+        assert exception_context_manager.exception.reset_epoch_s == float(rate_limit_reset)
 
     @responses.activate
     def test_braze_internal_server_error(self):
@@ -460,7 +462,11 @@ class BrazeClientTests(TestCase):
         Tests that a BrazeInternalServerError is raised if a 5xx
         status code is returned.
         """
-        self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=500)
+        responses.add(
+            responses.POST,
+            self.EXPORT_ID_URL,
+            status=500
+        )
         with self.assertRaises(BrazeInternalServerError):
             client = self._get_braze_client()
             client.get_braze_external_id(email='test@example.com')

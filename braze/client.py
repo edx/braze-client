@@ -4,10 +4,11 @@ Braze API Client.
 
 import json
 from collections import deque
-from operator import itemgetter
 from urllib.parse import urljoin
 
 import requests
+
+from braze.constants import TRACK_USER_COMPONENT_CHUNK_SIZE, USER_ALIAS_CHUNK_SIZE, BrazeAPIEndpoints
 
 from .exceptions import (
     BrazeBadRequestError,
@@ -18,17 +19,6 @@ from .exceptions import (
     BrazeRateLimitError,
     BrazeUnauthorizedError,
 )
-
-# Braze endpoints
-CAMPAIGN_SEND_ENDPOINT = '/campaigns/trigger/send'
-EXPORT_ID_ENDPOINT = '/users/export/ids'
-MESSAGE_SEND_ENPOINT = '/messages/send'
-NEW_ALIAS_ENDPOINT = '/users/alias/new'
-USERS_TRACK_ENDPOINT = '/users/track'
-
-# Braze enforced request size limits
-USER_ALIAS_CHUNK_SIZE = 50
-TRACK_USER_COMPONENT_CHUNK_SIZE = 75
 
 
 class BrazeClient:
@@ -49,39 +39,6 @@ class BrazeClient:
         self.api_url = api_url
         self.app_id = app_id
         self.session = requests.Session()
-
-    def _raise_error_for_response(self, response):
-        """
-        Raise error based on the response.
-
-        https://www.braze.com/docs/api/errors/#fatal-errors
-        """
-        headers, status_code, message, errors = itemgetter(
-            'headers', 'status_code', 'message', 'errors'
-        )(response)
-
-        if status_code == 400:
-            raise BrazeBadRequestError(message)
-
-        if status_code == 401:
-            raise BrazeUnauthorizedError(message)
-
-        if status_code == 403:
-            raise BrazeForbiddenError(message)
-
-        if status_code == 404:
-            raise BrazeNotFoundError(message)
-
-        if status_code == 429:
-            # https://www.braze.com/docs/api/basics/#api-limits
-            reset_epoch_s = float(headers.get("X-RateLimit-Reset", 0))
-            raise BrazeRateLimitError(reset_epoch_s)
-
-        if str(status_code).startswith('5'):
-            raise BrazeInternalServerError(message)
-
-        if message not in ('success', 'queued') or errors:
-            raise BrazeClientError(message, errors)
 
     def _chunks(self, a_list, chunk_size):
         """
@@ -114,13 +71,35 @@ class BrazeClient:
 
         resp = self.session.post(urljoin(self.api_url, endpoint), data=json.dumps(body), timeout=2)
 
-        resp_json = resp.json()
-        resp_json['status_code'] = resp.status_code
-        resp_json['headers'] = resp.headers
-        resp_json['errors'] = []
+        try:
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.HTTPError as exc:
+            # https://www.braze.com/docs/api/errors/#fatal-errors
+            status_code = exc.response.status_code
 
-        self._raise_error_for_response(resp_json)
-        return resp_json
+            if status_code == 400:
+                raise BrazeBadRequestError from exc
+
+            if status_code == 401:
+                raise BrazeUnauthorizedError from exc
+
+            if status_code == 403:
+                raise BrazeForbiddenError from exc
+
+            if status_code == 404:
+                raise BrazeNotFoundError from exc
+
+            if status_code == 429:
+                headers = exc.response.headers
+                # https://www.braze.com/docs/api/basics/#api-limits
+                reset_epoch_s = float(headers.get("X-RateLimit-Reset", "0"))
+                raise BrazeRateLimitError(reset_epoch_s) from exc
+
+            if str(status_code).startswith('5'):
+                raise BrazeInternalServerError from exc
+
+            raise BrazeClientError from exc
 
     def get_braze_external_id(self, email):
         """
@@ -138,7 +117,7 @@ class BrazeClient:
             'email_address': email,
             'fields_to_export': ['external_id']
         }
-        response = self._post_request(payload, EXPORT_ID_ENDPOINT)
+        response = self._post_request(payload, BrazeAPIEndpoints.EXPORT_IDS)
         if response['users'] and 'external_id' in response['users'][0]:
             return response['users'][0]['external_id']
 
@@ -187,7 +166,7 @@ class BrazeClient:
             if purchases:
                 payload['purchases'] = purchase_chunks.popleft()
 
-            self._post_request(payload, USERS_TRACK_ENDPOINT)
+            self._post_request(payload, BrazeAPIEndpoints.TRACK_USER)
 
     def create_braze_alias(self, emails, alias_label, attributes=None):
         """
@@ -226,7 +205,7 @@ class BrazeClient:
             alias_payload = {
                 'user_aliases': user_alias_chunk,
             }
-            self._post_request(alias_payload, NEW_ALIAS_ENDPOINT)
+            self._post_request(alias_payload, BrazeAPIEndpoints.NEW_ALIAS)
 
         if attributes:
             self.track_user(attributes=attributes)
@@ -293,7 +272,7 @@ class BrazeClient:
             'campaign_id': campaign_id,
             'override_frequency_capping': override_frequency_capping
         }
-        return self._post_request(payload, MESSAGE_SEND_ENPOINT)
+        return self._post_request(payload, BrazeAPIEndpoints.SEND_MESSAGE)
 
     def send_campaign_message(
         self,
@@ -347,4 +326,4 @@ class BrazeClient:
 
             recipients.append(recipient)
 
-        return self._post_request(message, CAMPAIGN_SEND_ENDPOINT)
+        return self._post_request(message, BrazeAPIEndpoints.SEND_CAMPAIGN)
