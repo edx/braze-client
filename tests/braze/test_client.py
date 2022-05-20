@@ -2,6 +2,7 @@
 Tests for Braze client.
 """
 
+import json
 import math
 from unittest import TestCase
 
@@ -27,11 +28,12 @@ class BrazeClientTests(TestCase):
     Tests for Braze Client.
     """
     BRAZE_URL = 'http://braze-api-url.com'
-    EXPORT_ID_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_IDS
-    NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
-    USERS_TRACK_URL = BRAZE_URL + BrazeAPIEndpoints.TRACK_USER
-    MESSAGE_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_MESSAGE
     CAMPAIGN_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CAMPAIGN
+    EXPORT_ID_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_IDS
+    MESSAGE_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_MESSAGE
+    NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
+    USERS_IDENTIFY_URL = BRAZE_URL + BrazeAPIEndpoints.IDENTIFY_USERS
+    USERS_TRACK_URL = BRAZE_URL + BrazeAPIEndpoints.TRACK_USER
 
     def _get_braze_client(self):
         return BrazeClient(
@@ -84,6 +86,52 @@ class BrazeClientTests(TestCase):
         assert external_id is None
         assert len(responses.calls) == 1
         assert responses.calls[0].request.url == self.EXPORT_ID_URL
+
+    def test_identify_users_bad_args(self):
+        """
+        Tests that arguments are validated.
+        """
+        client = self._get_braze_client()
+        with self.assertRaises(BrazeClientError):
+            client.identify_users([])
+
+    @responses.activate
+    def test_identify_users(self):
+        """
+        Tests a successful call to the /users/identify endpoint.
+        """
+        responses.add(
+            responses.POST,
+            self.USERS_IDENTIFY_URL,
+            json={'message': 'success'},
+            status=201
+        )
+
+        client = self._get_braze_client()
+        client.identify_users([
+            {
+                'external_id': '1',
+                'user_alias': {
+                    'alias_name': 'alias_name',
+                    'alias_label': 'alias_label'
+                }
+            }
+        ])
+
+        expected_body = {
+            "aliases_to_identify": [
+                {
+                    "external_id": "1",
+                    "user_alias": {
+                        "alias_name": "alias_name",
+                        "alias_label": "alias_label"
+                    }
+                }
+            ]
+        }
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == self.USERS_IDENTIFY_URL
+        assert responses.calls[0].request.body == json.dumps(expected_body)
 
     def test_track_user_bad_args(self):
         """

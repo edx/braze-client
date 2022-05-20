@@ -110,8 +110,7 @@ class BrazeClient:
         Arguments:
             email (str): e.g. 'test1@example.com'
         Returns:
-             external_id (int): external_id if account exists
-
+            external_id (int): external_id if account exists
         """
         payload = {
             'email_address': email,
@@ -122,6 +121,29 @@ class BrazeClient:
             return response['users'][0]['external_id']
 
         return None
+
+    def identify_users(self, aliases_to_identify):
+        """
+        Identify unidentified (alias-only) users.
+
+        https://www.braze.com/docs/api/endpoints/user_data/post_user_identify/
+
+        Arguments:
+            aliases_to_identify (list of dicts): The list of aliases to identify in the format of
+            {
+                'external_id': 'external_identifier',
+                'user_alias' : { 'alias_label' : 'example_label', 'alias_name' : 'example_alias' }
+            }
+        """
+        if not aliases_to_identify:
+            msg = 'Bad arguments, aliases_to_identify is required.'
+            raise BrazeClientError(msg)
+
+        payload = {
+            'aliases_to_identify': aliases_to_identify
+        }
+
+        return self._post_request(payload, BrazeAPIEndpoints.IDENTIFY_USERS)
 
     def track_user(
         self,
@@ -178,7 +200,6 @@ class BrazeClient:
             emails (list): e.g. ['test1@example.com', 'test2@example.com']
             alias_label (str): The type of alias
             attributes (list): The list of attributes to add to the user
-
         """
         if not (emails and alias_label):
             msg = 'Bad arguments, please check that emails, and alias_label are non-empty.'
@@ -295,7 +316,6 @@ class BrazeClient:
             apply to all users
         Returns:
             response (dict): The response object
-
         """
         if not (emails or recipients):
             msg = 'Bad arguments, please check that emails or recipients are non-empty.'
