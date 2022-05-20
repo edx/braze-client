@@ -13,6 +13,7 @@ class BrazeAPIEndpoints:
     SEND_MESSAGE = '/messages/send'
     NEW_ALIAS = '/users/alias/new'
     TRACK_USER = '/users/track'
+    IDENTIFY_USERS = '/users/identify'
 
 
 # Braze enforced request size limits
