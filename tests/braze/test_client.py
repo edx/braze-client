@@ -29,6 +29,7 @@ class BrazeClientTests(TestCase):
     """
     BRAZE_URL = 'http://braze-api-url.com'
     CAMPAIGN_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CAMPAIGN
+    CANVAS_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CANVAS
     EXPORT_ID_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_IDS
     MESSAGE_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_MESSAGE
     NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
@@ -147,8 +148,6 @@ class BrazeClientTests(TestCase):
         """
         Tests a successful call to /users/track.
         """
-        client = self._get_braze_client()
-
         responses.add(
             responses.POST,
             self.USERS_TRACK_URL,
@@ -178,8 +177,6 @@ class BrazeClientTests(TestCase):
         """
         Tests that calls to /users/track are batched correctly.
         """
-        client = self._get_braze_client()
-
         responses.add(
             responses.POST,
             self.USERS_TRACK_URL,
@@ -370,8 +367,6 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-
         with self.assertRaises(BrazeClientError):
             client = self._get_braze_client()
             client.send_email(
@@ -428,13 +423,66 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-
         with self.assertRaises(BrazeClientError):
             client = self._get_braze_client()
             client.send_campaign_message(
                 emails=['test@example.com'],
                 campaign_id='campaign_id'
+            )
+
+    def test_send_canvas_message_bad_args(self):
+        """
+        Tests that arguments are validated.
+        """
+        client = self._get_braze_client()
+        with self.assertRaises(BrazeClientError):
+            client.send_canvas_message(canvas_id='1', emails=[], recipients=[])
+
+    @responses.activate
+    def test_send_canvas_message_success(self):
+        """
+        Tests a successful call to /canvas/trigger/send.
+        """
+        responses.add(
+            responses.POST,
+            self.CANVAS_SEND_URL,
+            json={'dispatch_id': 'dispatch_id', 'message': 'success'},
+            status=201
+        )
+
+        responses.add(
+            responses.POST,
+            self.EXPORT_ID_URL,
+            json={'users': [{'external_id': '1'}], 'message': 'success'},
+            status=201
+        )
+
+        client = self._get_braze_client()
+        response = client.send_canvas_message(
+            emails=['test@example.com'],
+            canvas_id='canvas_id'
+        )
+
+        assert len(responses.calls) == 2
+        self.assertEqual(response['dispatch_id'], 'dispatch_id')
+
+    @responses.activate
+    def test_send_canvas_message_user_not_found(self):
+        """
+        Tests that an error is thrown if braze user is not found.
+        """
+        responses.add(
+            responses.POST,
+            self.EXPORT_ID_URL,
+            json={'users': [], 'invalid_ids': ['1'], 'message': 'success'},
+            status=201
+        )
+
+        with self.assertRaises(BrazeClientError):
+            client = self._get_braze_client()
+            client.send_canvas_message(
+                emails=['test@example.com'],
+                canvas_id='canvas_id'
             )
 
     @responses.activate
