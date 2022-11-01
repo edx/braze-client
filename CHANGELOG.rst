@@ -14,6 +14,10 @@ Change Log
 Unreleased
 ~~~~~~~~~~
 
+[0.1.5]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+feat: add send_canvas_message method
+
 [0.1.4]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 feat: add identify_users method

@@ -9,6 +9,7 @@ class BrazeAPIEndpoints:
     """
 
     SEND_CAMPAIGN = '/campaigns/trigger/send'
+    SEND_CANVAS = '/canvas/trigger/send'
     EXPORT_IDS = '/users/export/ids'
     SEND_MESSAGE = '/messages/send'
     NEW_ALIAS = '/users/alias/new'

@@ -308,7 +308,7 @@ class BrazeClient:
         https://www.braze.com/docs/api/endpoints/messaging/send_messages/post_send_triggered_campaigns/
 
         Arguments:
-            campaign_id (dict): The campaign identifier, the campaign must
+            campaign_id (str): The campaign identifier, the campaign must
             be an API-triggered campaign (set up via delivery settings)
             emails (list): e.g. ['test1@example.com', 'test2@example.com']
             recipients (list): The recipients objects
@@ -347,3 +347,56 @@ class BrazeClient:
             recipients.append(recipient)
 
         return self._post_request(message, BrazeAPIEndpoints.SEND_CAMPAIGN)
+
+    def send_canvas_message(
+        self,
+        canvas_id,
+        emails=None,
+        recipients=None,
+        canvas_entry_properties=None,
+    ):
+        """
+        Send a canvas message via API-triggered delivery.
+
+        https://www.braze.com/docs/api/endpoints/messaging/send_messages/post_send_triggered_canvases/
+
+        Arguments:
+            canvas_id (str): The canvas identifier, the canvas must
+            be an API-triggered campaign (set up via delivery settings)
+            emails (list): e.g. ['test1@example.com', 'test2@example.com']
+            recipients (list): The recipients objects
+            canvas_entry_properties: Personalization key-value pairs that will
+            apply to all users
+        Returns:
+            response (dict): The response object
+        """
+        if not (emails or recipients):
+            msg = 'Bad arguments, please check that emails or recipients are non-empty.'
+            raise BrazeClientError(msg)
+
+        emails = emails or []
+        recipients = recipients or []
+
+        for email in emails:
+            external_user_id = self.get_braze_external_id(email)
+
+            recipient = {
+                'external_user_id': external_user_id,
+            }
+
+            if not external_user_id:
+                raise BrazeClientError(
+                    f'Braze user with email {email} was not found. Please pass in custom recipients '
+                    f'if you wish to send campaign messages to anonymous users.'
+                )
+
+            recipients.append(recipient)
+
+        message = {
+            'canvas_id': canvas_id,
+            'canvas_entry_properties': canvas_entry_properties or {},
+            'recipients': recipients,
+            'broadcast': False
+        }
+
+        return self._post_request(message, BrazeAPIEndpoints.SEND_CANVAS)
