@@ -8,7 +8,11 @@ from urllib.parse import urljoin
 
 import requests
 
-from braze.constants import TRACK_USER_COMPONENT_CHUNK_SIZE, USER_ALIAS_CHUNK_SIZE, BrazeAPIEndpoints
+from braze.constants import (
+    TRACK_USER_COMPONENT_CHUNK_SIZE,
+    USER_ALIAS_CHUNK_SIZE,
+    BrazeAPIEndpoints,
+)
 
 from .exceptions import (
     BrazeBadRequestError,
@@ -26,12 +30,7 @@ class BrazeClient:
     Client for Braze REST API.
     """
 
-    def __init__(
-            self,
-            api_key,
-            api_url,
-            app_id
-    ):
+    def __init__(self, api_key, api_url, app_id):
         """
         Initialize the Braze Client with configuration values.
         """
@@ -45,7 +44,7 @@ class BrazeClient:
         Break a list up into chunks.
         """
         for i in range(0, len(a_list), chunk_size):
-            yield a_list[i:i + chunk_size]
+            yield a_list[i : i + chunk_size]
 
     def _post_request(self, body, endpoint):
         """
@@ -66,10 +65,15 @@ class BrazeClient:
             BrazeInternalServerError: If a 5XX status code is returned
         """
         self.session.headers.update(
-            {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+            {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
         )
 
-        resp = self.session.post(urljoin(self.api_url, endpoint), data=json.dumps(body), timeout=2)
+        resp = self.session.post(
+            urljoin(self.api_url, endpoint), data=json.dumps(body), timeout=2
+        )
 
         try:
             resp.raise_for_status()
@@ -96,7 +100,7 @@ class BrazeClient:
                 reset_epoch_s = float(headers.get("X-RateLimit-Reset", "0"))
                 raise BrazeRateLimitError(reset_epoch_s) from exc
 
-            if str(status_code).startswith('5'):
+            if str(status_code).startswith("5"):
                 raise BrazeInternalServerError from exc
 
             raise BrazeClientError from exc
@@ -112,13 +116,11 @@ class BrazeClient:
         Returns:
             external_id (int): external_id if account exists
         """
-        payload = {
-            'email_address': email,
-            'fields_to_export': ['external_id']
-        }
+        payload = {"email_address": email, "fields_to_export": ["external_id"]}
+
         response = self._post_request(payload, BrazeAPIEndpoints.EXPORT_IDS)
-        if response['users'] and 'external_id' in response['users'][0]:
-            return response['users'][0]['external_id']
+        if response["users"] and "external_id" in response["users"][0]:
+            return response["users"][0]["external_id"]
 
         return None
 
@@ -136,21 +138,14 @@ class BrazeClient:
             }
         """
         if not aliases_to_identify:
-            msg = 'Bad arguments, aliases_to_identify is required.'
+            msg = "Bad arguments, aliases_to_identify is required."
             raise BrazeClientError(msg)
 
-        payload = {
-            'aliases_to_identify': aliases_to_identify
-        }
+        payload = {"aliases_to_identify": aliases_to_identify}
 
         return self._post_request(payload, BrazeAPIEndpoints.IDENTIFY_USERS)
 
-    def track_user(
-        self,
-        attributes=None,
-        events=None,
-        purchases=None
-    ):
+    def track_user(self, attributes=None, events=None, purchases=None):
         """
         Record custom events, purchases, and update user profile attributes.
 
@@ -163,7 +158,7 @@ class BrazeClient:
         """
         payload = {}
         if not (attributes or events or purchases):
-            msg = 'Bad arguments, please check that attributes, events, or purchases are non-empty.'
+            msg = "Bad arguments, please check that attributes, events, or purchases are non-empty."
             raise BrazeClientError(msg)
 
         attributes = attributes or []
@@ -172,21 +167,25 @@ class BrazeClient:
 
         # Each request can contain up to 75 events, 75 attribute updates,
         # and 75 purchases (255 total).
-        attribute_chunks = deque(self._chunks(attributes, TRACK_USER_COMPONENT_CHUNK_SIZE))
+        attribute_chunks = deque(
+            self._chunks(attributes, TRACK_USER_COMPONENT_CHUNK_SIZE)
+        )
         events_chunks = deque(self._chunks(events, TRACK_USER_COMPONENT_CHUNK_SIZE))
-        purchase_chunks = deque(self._chunks(purchases, TRACK_USER_COMPONENT_CHUNK_SIZE))
+        purchase_chunks = deque(
+            self._chunks(purchases, TRACK_USER_COMPONENT_CHUNK_SIZE)
+        )
 
         while attribute_chunks or events_chunks or purchase_chunks:
             payload = {}
 
             if attribute_chunks:
-                payload['attributes'] = attribute_chunks.popleft()
+                payload["attributes"] = attribute_chunks.popleft()
 
             if events:
-                payload['events'] = events_chunks.popleft()
+                payload["events"] = events_chunks.popleft()
 
             if purchases:
-                payload['purchases'] = purchase_chunks.popleft()
+                payload["purchases"] = purchase_chunks.popleft()
 
             self._post_request(payload, BrazeAPIEndpoints.TRACK_USER)
 
@@ -202,7 +201,7 @@ class BrazeClient:
             attributes (list): The list of attributes to add to the user
         """
         if not (emails and alias_label):
-            msg = 'Bad arguments, please check that emails, and alias_label are non-empty.'
+            msg = "Bad arguments, please check that emails, and alias_label are non-empty."
             raise BrazeClientError(msg)
 
         user_aliases = []
@@ -211,20 +210,20 @@ class BrazeClient:
         for email in emails:
             if not self.get_braze_external_id(email):
                 user_alias = {
-                    'alias_label': alias_label,
-                    'alias_name': email,
+                    "alias_label": alias_label,
+                    "alias_name": email,
                 }
                 user_aliases.append(user_alias)
                 attribute = {
-                    'user_alias': user_alias,
-                    'email': email,
+                    "user_alias": user_alias,
+                    "email": email,
                 }
                 attributes.append(attribute)
 
         # Each request can support up to 50 aliases.
         for user_alias_chunk in self._chunks(user_aliases, USER_ALIAS_CHUNK_SIZE):
             alias_payload = {
-                'user_aliases': user_alias_chunk,
+                "user_aliases": user_alias_chunk,
             }
             self._post_request(alias_payload, BrazeAPIEndpoints.NEW_ALIAS)
 
@@ -238,10 +237,10 @@ class BrazeClient:
         body,
         from_email,
         campaign_id=None,
-        recipient_subscription_state='all',
+        recipient_subscription_state="all",
         reply_to=None,
         attachments=None,
-        override_frequency_capping=False
+        override_frequency_capping=False,
     ):
         """
         Send an email via Braze Rest API.
@@ -261,37 +260,35 @@ class BrazeClient:
             response (dict): The response object
         """
         if not (emails and subject and body and from_email):
-            msg = 'Bad arguments, please check that emails, subject, body, and from_email are non-empty.'
+            msg = "Bad arguments, please check that emails, subject, body, and from_email are non-empty."
             raise BrazeClientError(msg)
 
         external_ids = []
         for email in emails:
             external_id = self.get_braze_external_id(email)
             if not external_id:
-                raise BrazeClientError(f'Braze user with email {email} was not found.')
+                raise BrazeClientError(f"Braze user with email {email} was not found.")
 
             external_ids.append(str(external_id))
 
         email = {
-            'app_id': self.app_id,
-            'subject': subject,
-            'from': from_email,
-            'body': body,
+            "app_id": self.app_id,
+            "subject": subject,
+            "from": from_email,
+            "body": body,
         }
 
         if attachments:
-            email['attachments'] = attachments
+            email["attachments"] = attachments
         if reply_to:
-            email['reply_to'] = reply_to
+            email["reply_to"] = reply_to
 
         payload = {
-            'external_user_ids': external_ids,
-            'recipient_subscription_state': recipient_subscription_state,
-            'messages': {
-                'email': email
-            },
-            'campaign_id': campaign_id,
-            'override_frequency_capping': override_frequency_capping
+            "external_user_ids": external_ids,
+            "recipient_subscription_state": recipient_subscription_state,
+            "messages": {"email": email},
+            "campaign_id": campaign_id,
+            "override_frequency_capping": override_frequency_capping,
         }
         return self._post_request(payload, BrazeAPIEndpoints.SEND_MESSAGE)
 
@@ -301,6 +298,7 @@ class BrazeClient:
         emails=None,
         recipients=None,
         trigger_properties=None,
+        audience=None,
     ):
         """
         Send a campaign message via API-triggered delivery.
@@ -314,34 +312,36 @@ class BrazeClient:
             recipients (list): The recipients objects
             trigger_properties: Personalization key-value pairs that will
             apply to all users
+            audience: connected audience object. see - https://www.braze.com/docs/api/objects_filters/connected_audience/?#custom-attribute-filter
         Returns:
             response (dict): The response object
         """
         if not (emails or recipients):
-            msg = 'Bad arguments, please check that emails or recipients are non-empty.'
+            msg = "Bad arguments, please check that emails or recipients are non-empty."
             raise BrazeClientError(msg)
 
         emails = emails or []
-        recipients = recipients or []
+        recipients = [{"external_user_id": recipient} for recipient in recipients] or []
 
         message = {
-            'campaign_id': campaign_id,
-            'trigger_properties': trigger_properties or {},
-            'recipients': recipients,
-            'broadcast': False
+            "campaign_id": campaign_id,
+            "trigger_properties": trigger_properties or {},
+            "recipients": recipients,
+            "audience": audience or {},
+            "broadcast": False,
         }
 
         for email in emails:
             external_user_id = self.get_braze_external_id(email)
 
             recipient = {
-                'external_user_id': external_user_id,
+                "external_user_id": external_user_id,
             }
 
             if not external_user_id:
                 raise BrazeClientError(
-                    f'Braze user with email {email} was not found. Please pass in custom recipients '
-                    'if you wish to send campaign messages to anonymous users.'
+                    f"Braze user with email {email} was not found. Please pass in custom recipients "
+                    "if you wish to send campaign messages to anonymous users."
                 )
 
             recipients.append(recipient)
@@ -371,7 +371,7 @@ class BrazeClient:
             response (dict): The response object
         """
         if not (emails or recipients):
-            msg = 'Bad arguments, please check that emails or recipients are non-empty.'
+            msg = "Bad arguments, please check that emails or recipients are non-empty."
             raise BrazeClientError(msg)
 
         emails = emails or []
@@ -381,22 +381,22 @@ class BrazeClient:
             external_user_id = self.get_braze_external_id(email)
 
             recipient = {
-                'external_user_id': external_user_id,
+                "external_user_id": external_user_id,
             }
 
             if not external_user_id:
                 raise BrazeClientError(
-                    f'Braze user with email {email} was not found. Please pass in custom recipients '
-                    f'if you wish to send campaign messages to anonymous users.'
+                    f"Braze user with email {email} was not found. Please pass in custom recipients "
+                    f"if you wish to send campaign messages to anonymous users."
                 )
 
             recipients.append(recipient)
 
         message = {
-            'canvas_id': canvas_id,
-            'canvas_entry_properties': canvas_entry_properties or {},
-            'recipients': recipients,
-            'broadcast': False
+            "canvas_id": canvas_id,
+            "canvas_entry_properties": canvas_entry_properties or {},
+            "recipients": recipients,
+            "broadcast": False,
         }
 
         return self._post_request(message, BrazeAPIEndpoints.SEND_CANVAS)
