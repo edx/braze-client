@@ -8,7 +8,12 @@ from urllib.parse import urljoin
 
 import requests
 
-from braze.constants import TRACK_USER_COMPONENT_CHUNK_SIZE, USER_ALIAS_CHUNK_SIZE, BrazeAPIEndpoints
+from braze.constants import (
+    TRACK_USER_COMPONENT_CHUNK_SIZE,
+    UNSUBSCRIBED_STATE,
+    USER_ALIAS_CHUNK_SIZE,
+    BrazeAPIEndpoints,
+)
 
 from .exceptions import (
     BrazeBadRequestError,
@@ -400,3 +405,33 @@ class BrazeClient:
         }
 
         return self._post_request(message, BrazeAPIEndpoints.SEND_CANVAS)
+
+    def unsubscribe_user_email(
+        self,
+        email
+    ):
+        """
+        Unsubscribe user's email via API.
+
+        https://www.braze.com/docs/api/endpoints/email/post_email_subscription_status/
+
+        Arguments:
+            email (str, list): The maximum number of emails in a list can be 50 or just one str
+            e.g. 'test1@example.com' or ['test2@example.com', 'test3@example.com', ...]
+        Returns:
+            response (dict): The response object
+        """
+        if not email:
+            msg = 'Bad arguments, please check that emails are non-empty.'
+            raise BrazeClientError(msg)
+
+        if isinstance(email, list) and len(email) > 50:
+            msg = 'Bad arguments, The maximum number of emails in a list can be 50.'
+            raise BrazeClientError(msg)
+
+        payload = {
+            'email': email,
+            'subscription_state': UNSUBSCRIBED_STATE
+        }
+
+        return self._post_request(payload, BrazeAPIEndpoints.UNSUBSCRIBE_USER_EMAIL)
