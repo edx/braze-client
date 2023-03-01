@@ -35,6 +35,7 @@ class BrazeClientTests(TestCase):
     NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
     USERS_IDENTIFY_URL = BRAZE_URL + BrazeAPIEndpoints.IDENTIFY_USERS
     USERS_TRACK_URL = BRAZE_URL + BrazeAPIEndpoints.TRACK_USER
+    UNSUBSCRIBE_USER_EMAIL_URL = BRAZE_URL + BrazeAPIEndpoints.UNSUBSCRIBE_USER_EMAIL
 
     def _get_braze_client(self):
         return BrazeClient(
@@ -566,3 +567,38 @@ class BrazeClientTests(TestCase):
         with self.assertRaises(BrazeInternalServerError):
             client = self._get_braze_client()
             client.get_braze_external_id(email='test@example.com')
+
+    def test_unsubscribe_user_email_bad_args_empty_email(self):
+        """
+        Tests that arguments are validated.
+        """
+        client = self._get_braze_client()
+        with self.assertRaises(BrazeClientError):
+            client.unsubscribe_user_email(email=[])
+
+    def test_unsubscribe_user_email_bad_args_long_email_length(self):
+        """
+        Tests that arguments are validated.
+        """
+        emails = ['test@example.com'] * 51
+        client = self._get_braze_client()
+        with self.assertRaises(BrazeClientError):
+            client.unsubscribe_user_email(email=emails)
+
+    @responses.activate
+    def test_unsubscribe_user_email_success(self):
+        """
+        Tests a successful call to the /email/status endpoint.
+        """
+        responses.add(
+            responses.POST,
+            self.UNSUBSCRIBE_USER_EMAIL_URL,
+            json={'message': 'success'},
+            status=201
+        )
+        client = self._get_braze_client()
+        response = client.unsubscribe_user_email(email='test@example.com')
+
+        self.assertEqual(response, {'message': 'success'})
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == self.UNSUBSCRIBE_USER_EMAIL_URL
