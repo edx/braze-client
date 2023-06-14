@@ -1,7 +1,6 @@
 """
 Tests for Braze client.
 """
-
 import json
 import math
 from unittest import TestCase
@@ -10,7 +9,7 @@ import ddt
 import responses
 
 from braze.client import BrazeClient
-from braze.constants import BrazeAPIEndpoints
+from braze.constants import UNSUBSCRIBED_EMAILS_API_LIMIT, UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION, BrazeAPIEndpoints
 from braze.exceptions import (
     BrazeBadRequestError,
     BrazeClientError,
@@ -36,6 +35,13 @@ class BrazeClientTests(TestCase):
     USERS_IDENTIFY_URL = BRAZE_URL + BrazeAPIEndpoints.IDENTIFY_USERS
     USERS_TRACK_URL = BRAZE_URL + BrazeAPIEndpoints.TRACK_USER
     UNSUBSCRIBE_USER_EMAIL_URL = BRAZE_URL + BrazeAPIEndpoints.UNSUBSCRIBE_USER_EMAIL
+    RETRIEVE_UNSUBSCRIBED_EMAILS = BRAZE_URL + BrazeAPIEndpoints.UNSUBSCRIBED_EMAILS
+
+    def setUp(self):
+        super().setUp()
+        self.client = self._get_braze_client()
+        self.start_date = "2001-01-01"
+        self.end_date = "2002-02-02"
 
     def _get_braze_client(self):
         return BrazeClient(
@@ -44,9 +50,9 @@ class BrazeClientTests(TestCase):
             app_id='app_id'
         )
 
-    def _mock_braze_error_response(self, status, headers=None, url=EXPORT_ID_URL):
+    def _mock_braze_error_response(self, status, headers=None, url=EXPORT_ID_URL, request_type="POST"):
         responses.add(
-            responses.POST,
+            getattr(responses, request_type),
             url,
             headers=headers or {},
             json={"message": "error"},
@@ -64,8 +70,7 @@ class BrazeClientTests(TestCase):
             json={'users': [{'external_id': '1'}], 'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
-        external_id = client.get_braze_external_id(email='test@example.com')
+        external_id = self.client.get_braze_external_id(email='test@example.com')
 
         self.assertEqual(external_id, '1')
         assert len(responses.calls) == 1
@@ -82,8 +87,7 @@ class BrazeClientTests(TestCase):
             json={'users': [], 'invalid_ids': ['1'], 'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
-        external_id = client.get_braze_external_id(email='test@example.com')
+        external_id = self.client.get_braze_external_id(email='test@example.com')
 
         assert external_id is None
         assert len(responses.calls) == 1
@@ -93,9 +97,8 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
         with self.assertRaises(BrazeClientError):
-            client.identify_users([])
+            self.client.identify_users([])
 
     @responses.activate
     def test_identify_users(self):
@@ -109,8 +112,7 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-        client.identify_users([
+        self.client.identify_users([
             {
                 'external_id': '1',
                 'user_alias': {
@@ -139,10 +141,9 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
 
         with self.assertRaises(BrazeClientError):
-            client.track_user()
+            self.client.track_user()
 
     @responses.activate
     def test_track_user(self):
@@ -155,14 +156,13 @@ class BrazeClientTests(TestCase):
             json={'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
-        client.track_user(
+        self.client.track_user(
             attributes=[{'user_aliases': [
-                    {
-                        'external_id': '1',
-                        'attribute': f'attribute-{i}'
-                    }
-                ]} for i in range(76)],
+                {
+                    'external_id': '1',
+                    'attribute': f'attribute-{i}'
+                }
+            ]} for i in range(76)],
             events=[{'events_': [
                 {
                     'external_id': '1',
@@ -184,8 +184,7 @@ class BrazeClientTests(TestCase):
             json={'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
-        client.track_user(
+        self.client.track_user(
             attributes=[{'user_aliases': [
                 {
                     'external_id': '1',
@@ -203,10 +202,9 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
 
         with self.assertRaises(BrazeClientError):
-            client.create_braze_alias(**args)
+            self.client.create_braze_alias(**args)
 
     @responses.activate
     def test_create_braze_alias_success(self):
@@ -232,9 +230,8 @@ class BrazeClientTests(TestCase):
             json={'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
 
-        client.create_braze_alias(
+        self.client.create_braze_alias(
             emails=['test@example.com'],
             alias_label='alias_label'
         )
@@ -257,8 +254,7 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-        client.create_braze_alias(
+        self.client.create_braze_alias(
             emails=['test@example.com'],
             alias_label='alias_label',
             attributes=[]
@@ -290,10 +286,9 @@ class BrazeClientTests(TestCase):
             json={'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
 
         emails = [f'test-{i}@example.com' for i in range(101)]
-        client.create_braze_alias(
+        self.client.create_braze_alias(
             emails=emails,
             alias_label='alias_label'
         )
@@ -319,10 +314,9 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
 
         with self.assertRaises(BrazeClientError):
-            client.send_email(**args)
+            self.client.send_email(**args)
 
     @responses.activate
     def test_send_email_success(self):
@@ -343,8 +337,7 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-        response = client.send_email(
+        response = self.client.send_email(
             emails=['test@example.com'],
             subject='subject',
             body='body',
@@ -369,8 +362,7 @@ class BrazeClientTests(TestCase):
         )
 
         with self.assertRaises(BrazeClientError):
-            client = self._get_braze_client()
-            client.send_email(
+            self.client.send_email(
                 emails=['test@example.com'],
                 subject='subject',
                 body='body',
@@ -381,9 +373,8 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
         with self.assertRaises(BrazeClientError):
-            client.send_campaign_message(campaign_id='1', emails=[], recipients=[])
+            self.client.send_campaign_message(campaign_id='1', emails=[], recipients=[])
 
     @responses.activate
     def test_send_campaign_message_success(self):
@@ -403,8 +394,7 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-        response = client.send_campaign_message(
+        response = self.client.send_campaign_message(
             emails=['test@example.com'],
             campaign_id='campaign_id'
         )
@@ -425,8 +415,7 @@ class BrazeClientTests(TestCase):
         )
 
         with self.assertRaises(BrazeClientError):
-            client = self._get_braze_client()
-            client.send_campaign_message(
+            self.client.send_campaign_message(
                 emails=['test@example.com'],
                 campaign_id='campaign_id'
             )
@@ -435,9 +424,8 @@ class BrazeClientTests(TestCase):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
         with self.assertRaises(BrazeClientError):
-            client.send_canvas_message(canvas_id='1', emails=[], recipients=[])
+            self.client.send_canvas_message(canvas_id='1', emails=[], recipients=[])
 
     @responses.activate
     def test_send_canvas_message_success(self):
@@ -458,8 +446,7 @@ class BrazeClientTests(TestCase):
             status=201
         )
 
-        client = self._get_braze_client()
-        response = client.send_canvas_message(
+        response = self.client.send_canvas_message(
             emails=['test@example.com'],
             canvas_id='canvas_id'
         )
@@ -480,8 +467,7 @@ class BrazeClientTests(TestCase):
         )
 
         with self.assertRaises(BrazeClientError):
-            client = self._get_braze_client()
-            client.send_canvas_message(
+            self.client.send_canvas_message(
                 emails=['test@example.com'],
                 canvas_id='canvas_id'
             )
@@ -495,11 +481,15 @@ class BrazeClientTests(TestCase):
         self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=400)
 
         with self.assertRaises(BrazeBadRequestError):
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(url=self.RETRIEVE_UNSUBSCRIBED_EMAILS, status=400, request_type="GET")
+
+        with self.assertRaises(BrazeBadRequestError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
     @responses.activate
-    def test_braze_unathorized_error(self):
+    def test_braze_unauthorized_error(self):
         """
         Tests that BrazeUnauthorizedError is raised if a 401 status
         code is returned.
@@ -507,20 +497,28 @@ class BrazeClientTests(TestCase):
         self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=401)
 
         with self.assertRaises(BrazeUnauthorizedError):
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(url=self.RETRIEVE_UNSUBSCRIBED_EMAILS, status=401, request_type="GET")
+
+        with self.assertRaises(BrazeUnauthorizedError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
     @responses.activate
     def test_braze_forbidden_error(self):
         """
-        Tests that BrazeUnauthorizedError is raised if a 403 status
+        Tests that BrazeForbiddenError is raised if a 403 status
         code is returned.
         """
         self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=403)
 
         with self.assertRaises(BrazeForbiddenError):
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(url=self.RETRIEVE_UNSUBSCRIBED_EMAILS, status=403, request_type="GET")
+
+        with self.assertRaises(BrazeForbiddenError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
     @responses.activate
     def test_braze_not_found_error(self):
@@ -531,8 +529,12 @@ class BrazeClientTests(TestCase):
         self._mock_braze_error_response(url=self.EXPORT_ID_URL, status=404)
 
         with self.assertRaises(BrazeNotFoundError):
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(url=self.RETRIEVE_UNSUBSCRIBED_EMAILS, status=404, request_type="GET")
+
+        with self.assertRaises(BrazeNotFoundError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
     @responses.activate
     def test_braze_rate_limit_error(self):
@@ -548,8 +550,19 @@ class BrazeClientTests(TestCase):
         )
 
         with self.assertRaises(BrazeRateLimitError) as exception_context_manager:
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        assert exception_context_manager.exception.reset_epoch_s == float(rate_limit_reset)
+
+        self._mock_braze_error_response(
+            status=429,
+            url=self.RETRIEVE_UNSUBSCRIBED_EMAILS,
+            headers={"X-RateLimit-Reset": rate_limit_reset},
+            request_type="GET"
+        )
+
+        with self.assertRaises(BrazeRateLimitError) as exception_context_manager:
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
         assert exception_context_manager.exception.reset_epoch_s == float(rate_limit_reset)
 
@@ -559,31 +572,55 @@ class BrazeClientTests(TestCase):
         Tests that a BrazeInternalServerError is raised if a 5xx
         status code is returned.
         """
-        responses.add(
-            responses.POST,
-            self.EXPORT_ID_URL,
-            status=500
+        self._mock_braze_error_response(
+            status=500,
+            url=self.EXPORT_ID_URL,
         )
         with self.assertRaises(BrazeInternalServerError):
-            client = self._get_braze_client()
-            client.get_braze_external_id(email='test@example.com')
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(
+            status=500,
+            url=self.RETRIEVE_UNSUBSCRIBED_EMAILS,
+            request_type="GET"
+        )
+        with self.assertRaises(BrazeInternalServerError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
+
+    @responses.activate
+    def test_braze_client_error(self):
+        """
+        Tests that a generic BrazeClientError is raised.
+        """
+        self._mock_braze_error_response(
+            status=410,
+            url=self.EXPORT_ID_URL,
+        )
+        with self.assertRaises(BrazeClientError):
+            self.client.get_braze_external_id(email='test@example.com')
+
+        self._mock_braze_error_response(
+            status=410,
+            url=self.RETRIEVE_UNSUBSCRIBED_EMAILS,
+            request_type="GET"
+        )
+        with self.assertRaises(BrazeClientError):
+            self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
 
     def test_unsubscribe_user_email_bad_args_empty_email(self):
         """
         Tests that arguments are validated.
         """
-        client = self._get_braze_client()
         with self.assertRaises(BrazeClientError):
-            client.unsubscribe_user_email(email=[])
+            self.client.unsubscribe_user_email(email=[])
 
     def test_unsubscribe_user_email_bad_args_long_email_length(self):
         """
         Tests that arguments are validated.
         """
         emails = ['test@example.com'] * 51
-        client = self._get_braze_client()
         with self.assertRaises(BrazeClientError):
-            client.unsubscribe_user_email(email=emails)
+            self.client.unsubscribe_user_email(email=emails)
 
     @responses.activate
     def test_unsubscribe_user_email_success(self):
@@ -596,9 +633,166 @@ class BrazeClientTests(TestCase):
             json={'message': 'success'},
             status=201
         )
-        client = self._get_braze_client()
-        response = client.unsubscribe_user_email(email='test@example.com')
+        response = self.client.unsubscribe_user_email(email='test@example.com')
 
         self.assertEqual(response, {'message': 'success'})
         assert len(responses.calls) == 1
         assert responses.calls[0].request.url == self.UNSUBSCRIBE_USER_EMAIL_URL
+
+    def _generate_retrieve_unsubscribed_emails_url(
+            self,
+            start_date,
+            end_date,
+            limit=None,
+            offset=None,
+
+    ):
+        """
+        Generate the retrieve unsubscribed emails URL with query params
+        """
+        params = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'limit': str(limit) if limit else str(UNSUBSCRIBED_EMAILS_API_LIMIT),
+            'offset': str(offset) if offset else '0',
+            'sort_direction': UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
+        }
+
+        url = (
+            f"{self.RETRIEVE_UNSUBSCRIBED_EMAILS}?"
+            f"start_date={params['start_date']}&"
+            f"end_date={params['end_date']}&"
+            f"limit={params['limit']}&"
+            f"offset={params['offset']}&"
+            f"sort_direction={params['sort_direction']}"
+        )
+        return params, url
+
+    @responses.activate
+    def test_retrieve_unsubscribed_emails_success(self):
+        mock_response = {
+            'emails': ['test1@example.com', 'test2@example.com']
+        }
+        params, url = self._generate_retrieve_unsubscribed_emails_url(
+            self.start_date,
+            self.end_date,
+        )
+        responses.add(
+            responses.GET,
+            url,
+            json=mock_response,
+            status=200
+        )
+
+        result = self.client.retrieve_unsubscribed_emails(self.start_date, self.end_date)
+
+        self.assertEqual(result, ['test1@example.com', 'test2@example.com'])
+
+        request = responses.calls[0].request
+        self.assertEqual(request.url, url)
+        self.assertEqual(request.params, params)
+
+    @responses.activate
+    def test_retrieve_unsubscribed_emails_invalid_dates(self):
+        with self.assertRaises(BrazeClientError):
+            self.client.retrieve_unsubscribed_emails(self.end_date, self.start_date)
+
+        self.assertEqual(len(responses.calls), 0)
+
+    @responses.activate
+    def test_retrieve_unsubscribed_emails_invalid_date_format(self):
+        with self.assertRaises(BrazeClientError):
+            self.client.retrieve_unsubscribed_emails('01/01/2001', '02/02/2002')
+
+        self.assertEqual(len(responses.calls), 0)
+
+    @responses.activate
+    def test_retrieve_unsubscribed_emails_empty_response(self):
+        mock_response = {
+            'emails': []
+        }
+
+        params, url = self._generate_retrieve_unsubscribed_emails_url(
+            self.start_date,
+            self.end_date,
+        )
+
+        responses.add(
+            responses.GET,
+            url,
+            json=mock_response,
+            status=200
+        )
+
+        result = self.client.retrieve_unsubscribed_emails(self.start_date, self.end_date)
+
+        self.assertEqual(result, [])
+
+        request = responses.calls[0].request
+        self.assertEqual(request.url, url)
+        self.assertEqual(request.params, params)
+
+    @responses.activate
+    def test_retrieve_unsubscribed_emails_multiple_api_calls(self):
+        mock_response_1 = {
+            "emails": ["test@example.com"] * 500,
+        }
+        mock_response_2 = {
+            "emails": ["test@example.com"] * 500,
+        }
+        mock_response_3 = {
+            "emails": ["test@example.com"] * 100,
+        }
+
+        params_1, url_1 = self._generate_retrieve_unsubscribed_emails_url(
+            self.start_date,
+            self.end_date,
+            UNSUBSCRIBED_EMAILS_API_LIMIT,
+            0
+        )
+
+        params_2, url_2 = self._generate_retrieve_unsubscribed_emails_url(
+            self.start_date,
+            self.end_date,
+            UNSUBSCRIBED_EMAILS_API_LIMIT,
+            UNSUBSCRIBED_EMAILS_API_LIMIT
+        )
+
+        params_3, url_3 = self._generate_retrieve_unsubscribed_emails_url(
+            self.start_date,
+            self.end_date,
+            UNSUBSCRIBED_EMAILS_API_LIMIT,
+            UNSUBSCRIBED_EMAILS_API_LIMIT * 2
+        )
+
+        responses.add(
+            responses.GET,
+            url_1,
+            json=mock_response_1,
+            status=200
+        )
+        responses.add(
+            responses.GET,
+            url_2,
+            json=mock_response_2,
+            status=200
+        )
+        responses.add(
+            responses.GET,
+            url_3,
+            json=mock_response_3,
+            status=200
+        )
+
+        result = self.client.retrieve_unsubscribed_emails(self.start_date, self.end_date)
+        expected_result = ["test@example.com"] * 1100
+        self.assertEqual(result, expected_result)
+
+        expected_calls = responses.calls
+        self.assertEqual(len(expected_calls), 3)
+        self.assertDictEqual(expected_calls[0].request.params, params_1)
+        self.assertDictEqual(expected_calls[1].request.params, params_2)
+        self.assertDictEqual(expected_calls[2].request.params, params_3)
+        self.assertEqual(expected_calls[0].request.url, url_1)
+        self.assertEqual(expected_calls[1].request.url, url_2)
+        self.assertEqual(expected_calls[2].request.url, url_3)

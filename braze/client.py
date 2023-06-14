@@ -1,7 +1,7 @@
 """
 Braze API Client.
 """
-
+import datetime
 import json
 from collections import deque
 from urllib.parse import urljoin
@@ -9,7 +9,11 @@ from urllib.parse import urljoin
 import requests
 
 from braze.constants import (
+    REQUEST_TYPE_GET,
+    REQUEST_TYPE_POST,
     TRACK_USER_COMPONENT_CHUNK_SIZE,
+    UNSUBSCRIBED_EMAILS_API_LIMIT,
+    UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
     UNSUBSCRIBED_STATE,
     USER_ALIAS_CHUNK_SIZE,
     BrazeAPIEndpoints,
@@ -52,20 +56,21 @@ class BrazeClient:
         for i in range(0, len(a_list), chunk_size):
             yield a_list[i:i + chunk_size]
 
-    def _post_request(self, body, endpoint):
+    def _make_request(self, data, endpoint, request_type):
         """
         Http posts the message body with associated headers.
 
         Arguments:
-            body (dict): The request body
+            data (dict): The request body for post request or params for get request
             endpoint (str): The endpoint for the API e.g. /messages/send
+            request_type (str): The request_type for the API e.g. 'post or 'get'
         Returns:
             resp (json): The http response in json format
         Raises:
             BrazeClientError: If a failure message is returned
             BrazeBadRequestError: If a 400 status code is returned
             BrazeUnauthorizedError: If a 401 status code is returned
-            BrazeUnauthorizedError: If a 403 status code is returned
+            BrazeForbiddenError: If a 403 status code is returned
             BrazeNotFoundError: If a 404 status code is returned
             BrazeRateLimitError: If a 429 status code is returned
             BrazeInternalServerError: If a 5XX status code is returned
@@ -74,7 +79,10 @@ class BrazeClient:
             {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         )
 
-        resp = self.session.post(urljoin(self.api_url, endpoint), data=json.dumps(body), timeout=2)
+        if request_type == 'post':
+            resp = self.session.post(urljoin(self.api_url, endpoint), data=json.dumps(data), timeout=2)
+        else:
+            resp = self.session.get(urljoin(self.api_url, endpoint), params=data, timeout=2)
 
         try:
             resp.raise_for_status()
@@ -121,7 +129,7 @@ class BrazeClient:
             'email_address': email,
             'fields_to_export': ['external_id']
         }
-        response = self._post_request(payload, BrazeAPIEndpoints.EXPORT_IDS)
+        response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
         if response['users'] and 'external_id' in response['users'][0]:
             return response['users'][0]['external_id']
 
@@ -148,7 +156,7 @@ class BrazeClient:
             'aliases_to_identify': aliases_to_identify
         }
 
-        return self._post_request(payload, BrazeAPIEndpoints.IDENTIFY_USERS)
+        return self._make_request(payload, BrazeAPIEndpoints.IDENTIFY_USERS, REQUEST_TYPE_POST)
 
     def track_user(
         self,
@@ -193,7 +201,7 @@ class BrazeClient:
             if purchases:
                 payload['purchases'] = purchase_chunks.popleft()
 
-            self._post_request(payload, BrazeAPIEndpoints.TRACK_USER)
+            self._make_request(payload, BrazeAPIEndpoints.TRACK_USER, REQUEST_TYPE_POST)
 
     def create_braze_alias(self, emails, alias_label, attributes=None):
         """
@@ -231,7 +239,7 @@ class BrazeClient:
             alias_payload = {
                 'user_aliases': user_alias_chunk,
             }
-            self._post_request(alias_payload, BrazeAPIEndpoints.NEW_ALIAS)
+            self._make_request(alias_payload, BrazeAPIEndpoints.NEW_ALIAS, REQUEST_TYPE_POST)
 
         if attributes:
             self.track_user(attributes=attributes)
@@ -298,7 +306,7 @@ class BrazeClient:
             'campaign_id': campaign_id,
             'override_frequency_capping': override_frequency_capping
         }
-        return self._post_request(payload, BrazeAPIEndpoints.SEND_MESSAGE)
+        return self._make_request(payload, BrazeAPIEndpoints.SEND_MESSAGE, REQUEST_TYPE_POST)
 
     def send_campaign_message(
         self,
@@ -351,7 +359,7 @@ class BrazeClient:
 
             recipients.append(recipient)
 
-        return self._post_request(message, BrazeAPIEndpoints.SEND_CAMPAIGN)
+        return self._make_request(message, BrazeAPIEndpoints.SEND_CAMPAIGN, REQUEST_TYPE_POST)
 
     def send_canvas_message(
         self,
@@ -404,7 +412,7 @@ class BrazeClient:
             'broadcast': False
         }
 
-        return self._post_request(message, BrazeAPIEndpoints.SEND_CANVAS)
+        return self._make_request(message, BrazeAPIEndpoints.SEND_CANVAS, REQUEST_TYPE_POST)
 
     def unsubscribe_user_email(
         self,
@@ -434,4 +442,54 @@ class BrazeClient:
             'subscription_state': UNSUBSCRIBED_STATE
         }
 
-        return self._post_request(payload, BrazeAPIEndpoints.UNSUBSCRIBE_USER_EMAIL)
+        return self._make_request(payload, BrazeAPIEndpoints.UNSUBSCRIBE_USER_EMAIL, REQUEST_TYPE_POST)
+
+    def retrieve_unsubscribed_emails(
+        self,
+        start_date,
+        end_date,
+    ):
+        """
+        Retrieve unsubscribe users email via API.
+
+        https://www.braze.com/docs/api/endpoints/email/get_query_unsubscribed_email_addresses/
+
+        Arguments:
+            start_date(str): Start date of the range to retrieve unsubscribes, must be earlier than end_date.
+            This is treated as midnight in UTC time by the API. Format: YYYY-MM-DD
+            end_date(str): End date of the range to retrieve unsubscribes. This is treated as midnight in
+            UTC time by the API. Format: YYYY-MM-DD
+        Returns:
+            response (list): list of emails
+        """
+        try:
+            start_datetime = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+            end_datetime = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+            if start_datetime > end_datetime:
+                raise BrazeClientError("Invalid dates: The start date must be before the end date.")
+        except ValueError as exc:
+            raise BrazeClientError("Invalid date format: Please provide dates in YYYY-MM-DD format.") from exc
+
+        params = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'limit': UNSUBSCRIBED_EMAILS_API_LIMIT,
+            'offset': 0,
+            'sort_direction': UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
+        }
+
+        unsubscribed_emails = []
+        response = self._make_request(params, BrazeAPIEndpoints.UNSUBSCRIBED_EMAILS, REQUEST_TYPE_GET)
+        emails = response.get('emails', [])
+        unsubscribed_emails.extend(emails)
+
+        # NOTE: If your date range has more than limit number of unsubscribes, you will need to make multiple API calls,
+        # each time increasing the offset until a call returns either fewer than limit or zero results.
+        while len(emails) >= UNSUBSCRIBED_EMAILS_API_LIMIT:
+            # Update the offset for the next API call
+            params['offset'] += UNSUBSCRIBED_EMAILS_API_LIMIT
+            response = self._make_request(params, BrazeAPIEndpoints.UNSUBSCRIBED_EMAILS, REQUEST_TYPE_GET)
+            emails = response.get('emails', [])
+            unsubscribed_emails.extend(emails)
+
+        return unsubscribed_emails
