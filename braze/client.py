@@ -222,17 +222,22 @@ class BrazeClient:
         attributes = attributes or []
 
         for email in emails:
-            if not self.get_braze_external_id(email):
-                user_alias = {
-                    'alias_label': alias_label,
-                    'alias_name': email,
-                }
-                user_aliases.append(user_alias)
-                attribute = {
-                    'user_alias': user_alias,
-                    'email': email,
-                }
-                attributes.append(attribute)
+            user_alias = {
+                'alias_label': alias_label,
+                'alias_name': email,
+            }
+            braze_external_id = self.get_braze_external_id(email)
+            # Adding a user alias for an existing user requires an external_id to be
+            # included in the new user alias object.
+            # http://web.archive.org/web/20231005191135/https://www.braze.com/docs/api/endpoints/user_data/post_user_alias#response
+            if braze_external_id:
+                user_alias['external_id'] = braze_external_id
+            user_aliases.append(user_alias)
+            attribute = {
+                'user_alias': user_alias,
+                'email': email,
+            }
+            attributes.append(attribute)
 
         # Each request can support up to 50 aliases.
         for user_alias_chunk in self._chunks(user_aliases, USER_ALIAS_CHUNK_SIZE):

@@ -247,10 +247,23 @@ class BrazeClientTests(TestCase):
         Tests that calls to to /users/alias/new and /users/track are not made
         if a Braze user already exists for the given email.
         """
+        existing_enternal_id = '1'
         responses.add(
             responses.POST,
             self.EXPORT_ID_URL,
-            json={'users': [{'external_id': '1'}], 'message': 'success'},
+            json={'users': [{'external_id': existing_enternal_id}], 'message': 'success'},
+            status=201
+        )
+        responses.add(
+            responses.POST,
+            self.NEW_ALIAS_URL,
+            json={'message': 'success'},
+            status=201
+        )
+        responses.add(
+            responses.POST,
+            self.USERS_TRACK_URL,
+            json={'message': 'success'},
             status=201
         )
 
@@ -260,8 +273,12 @@ class BrazeClientTests(TestCase):
             attributes=[]
         )
 
-        assert len(responses.calls) == 1
+        assert len(responses.calls) == 3
         assert responses.calls[0].request.url == self.EXPORT_ID_URL
+        assert responses.calls[1].request.url == self.NEW_ALIAS_URL
+        alias_data = json.loads(responses.calls[1].request.body)
+        assert alias_data['user_aliases'][0]['external_id'] == existing_enternal_id
+        assert responses.calls[2].request.url == self.USERS_TRACK_URL
 
     @responses.activate
     def test_create_braze_alias_batching(self):
