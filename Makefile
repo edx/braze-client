@@ -57,10 +57,10 @@ upgrade: $(COMMON_CONSTRAINTS_TXT)## update the requirements/*.txt files with th
 
 quality: ## check coding style with pycodestyle and pylint
 	touch tests/__init__.py
-	pylint braze tests test_utils manage.py *.py
+	pylint braze tests test_utils *.py
 	pycodestyle braze tests  *.py
 	pydocstyle braze tests *.py
-	isort --check-only --diff --recursive tests test_utils braze *.py test_settings.py
+	isort --check-only --diff --recursive tests test_utils braze *.py
 	python setup.py bdist_wheel
 	twine check dist/*
 	make selfcheck
