@@ -72,7 +72,7 @@ How To Contribute
 -----------------
 
 Contributions are very welcome.
-Please read `How To Contribute <https://github.com/edx/edx-platform/blob/master/CONTRIBUTING.rst>`_ for details.
+Please read `Contribution Guidelines <https://github.com/edx/edx-platform/blob/master/CONTRIBUTING.rst>`_ for details.
 Even though they were written with ``edx-platform`` in mind, the guidelines
 should be followed for all Open edX projects.
 
@@ -87,8 +87,8 @@ Reporting Security Issues
 
 Please do not report security issues in public. Please email security@edx.org.
 
-Getting Help
-------------
+Obtaining Help
+--------------
 
 If you're having trouble, we have discussion forums at https://discuss.openedx.org where you can connect with others in the community.
 
