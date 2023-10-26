@@ -275,7 +275,7 @@ tomlkit==0.12.1
     #   pylint
 tox==3.28.0
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
+    #   -c requirements/common_constraints.txt
     #   -r requirements/ci.txt
 twine==4.0.2
     # via -r requirements/quality.txt
