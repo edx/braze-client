@@ -155,6 +155,34 @@ class BrazeClient:
 
         return None
 
+    def start_braze_segment_user_export(self, segment_id, required_fields, output_gzip=False):
+        """
+        Export files of user profiles from Braze to object store based on a segment ID (defaults to zip format).
+
+        https://www.braze.com/docs/api/endpoints/export/user_data/post_users_segment/
+
+        Arguments:
+            segment_id (str): e.g. 'abc1
+            required_fields (list[str]): list of fields to include in export
+            output_gzip (bool): set export format to gzip, defaults to False
+        Returns:
+            response (dict[str, str]):
+                url: object store URL of export if none setup on customer end (optional)
+                object_prefix: prefix of exported file(s)
+                message: status of export; 'success' if no errors
+        """
+        payload = {
+            'segment_id': segment_id,
+            'fields_to_export': required_fields,
+            'output_format': "gzip" if output_gzip else "zip",
+        }
+        response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_SEGMENT, REQUEST_TYPE_POST)
+
+        if response:
+            return response
+
+        return None
+
     def identify_users(self, aliases_to_identify):
         """
         Identify unidentified (alias-only) users.

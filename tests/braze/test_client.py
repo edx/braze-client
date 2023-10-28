@@ -30,6 +30,7 @@ class BrazeClientTests(TestCase):
     CAMPAIGN_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CAMPAIGN
     CANVAS_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_CANVAS
     EXPORT_ID_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_IDS
+    EXPORT_SEGMENT_URL = BRAZE_URL + BrazeAPIEndpoints.EXPORT_SEGMENT
     MESSAGE_SEND_URL = BRAZE_URL + BrazeAPIEndpoints.SEND_MESSAGE
     NEW_ALIAS_URL = BRAZE_URL + BrazeAPIEndpoints.NEW_ALIAS
     USERS_IDENTIFY_URL = BRAZE_URL + BrazeAPIEndpoints.IDENTIFY_USERS
@@ -135,6 +136,33 @@ class BrazeClientTests(TestCase):
         assert user_data is None
         assert len(responses.calls) == 1
         assert responses.calls[0].request.url == self.EXPORT_ID_URL
+
+    @responses.activate
+    def test_start_braze_segment_user_export_success(self):
+        """
+        Tests a successful call to the /users/export/segment endpoint to instantiate
+        a data export job and return a summary response.
+        """
+        EXPORT_RESPONSE = {
+                    'object_prefix': 'abc123',
+                    'message': 'success',
+                    'url': None,
+                  }
+
+        responses.add(
+            responses.POST,
+            self.EXPORT_SEGMENT_URL,
+            json=EXPORT_RESPONSE,
+            status=201
+        )
+        export_response = self.client.start_braze_segment_user_export(
+                                        segment_id='qrs678',
+                                        required_fields=['field1', 'field2', 'field3'],
+                                    )
+
+        self.assertEqual(export_response, EXPORT_RESPONSE)
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == self.EXPORT_SEGMENT_URL
 
     def test_identify_users_bad_args(self):
         """
@@ -547,6 +575,14 @@ class BrazeClientTests(TestCase):
 
         with self.assertRaises(BrazeBadRequestError):
             self.client.retrieve_unsubscribed_emails(start_date='2001-01-01', end_date='2002-02-02')
+
+        self._mock_braze_error_response(url=self.EXPORT_SEGMENT_URL, status=400)
+
+        with self.assertRaises(BrazeBadRequestError):
+            self.client.start_braze_segment_user_export(
+                                        segment_id='xyz123',
+                                        required_fields=['external_id', 'first_name', 'last_name']
+                                    )
 
     @responses.activate
     def test_braze_unauthorized_error(self):
