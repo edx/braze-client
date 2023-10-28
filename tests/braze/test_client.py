@@ -93,6 +93,49 @@ class BrazeClientTests(TestCase):
         assert len(responses.calls) == 1
         assert responses.calls[0].request.url == self.EXPORT_ID_URL
 
+    @responses.activate
+    def test_get_braze_users_by_external_id_success(self):
+        """
+        Tests a successful call to the /users/export/ids endpoint to retrieve
+        users' data from list of `external_id` values.
+        """
+
+        TEST_USERS = [
+            {'external_id': 'abc1', 'email': 'foo@example.com', 'first_name': 'Foo'},
+            {'external_id': 'def2', 'email': 'bar@example.com', 'first_name': 'Bar'},
+        ]
+
+        responses.add(
+            responses.POST,
+            self.EXPORT_ID_URL,
+            json={'users': TEST_USERS,
+                  'message': 'success'},
+            status=201
+        )
+        user_data = self.client.get_braze_users_by_external_id(external_ids=['abc1', 'def2'])
+
+        self.assertEqual(user_data, TEST_USERS)
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == self.EXPORT_ID_URL
+
+    @responses.activate
+    def test_get_braze_users_by_external_id_failure(self):
+        """
+        Tests a call to the /users/export/ids endpoint to retrieve a user's data
+        with an invalid external_id.
+        """
+        responses.add(
+            responses.POST,
+            self.EXPORT_ID_URL,
+            json={'users': [], 'invalid_user_ids': ['xyz321'], 'message': 'success'},
+            status=201
+        )
+        user_data = self.client.get_braze_users_by_external_id(external_ids=['xyz321'])
+
+        assert user_data is None
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.url == self.EXPORT_ID_URL
+
     def test_identify_users_bad_args(self):
         """
         Tests that arguments are validated.

@@ -135,6 +135,26 @@ class BrazeClient:
 
         return None
 
+    def get_braze_users_by_external_id(self, external_ids):
+        """
+        Export user profiles from Braze based on their external_id.
+
+        https://www.braze.com/docs/api/endpoints/export/user_data/post_users_identifier/
+
+        Arguments:
+            external_ids (list[str]): e.g. ['abc1', 'def2]
+        Returns:
+            users (list of dicts): user profiles if specified accounts exists
+        """
+        payload = {
+            'external_ids': external_ids,
+        }
+        response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
+        if response['users']:
+            return response['users']
+
+        return None
+
     def identify_users(self, aliases_to_identify):
         """
         Identify unidentified (alias-only) users.
