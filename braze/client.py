@@ -135,7 +135,7 @@ class BrazeClient:
         }
         response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
         if response['users'] and 'external_id' in response['users'][0]:
-            return response['users'][0]['external_id']
+            return response['users'][0].get('external_id')
 
         return None
 
@@ -147,7 +147,10 @@ class BrazeClient:
         https://www.braze.com/docs/api/endpoints/export/user_data/post_users_identifier/
         "Up to 50 external_ids or user_aliases can be included in a single request.
         Should you want to specify device_id or email_address
-        only one of either identifier can be included per request."
+        only one of either identifier can be included per request.
+        [...]
+        if a field is missing from the object it should be assumed to be null, false, or empty
+        "
 
         Arguments:
             emails (list(str)): e.g. ['test1@example.com', 'test1@example.com']
@@ -174,7 +177,7 @@ class BrazeClient:
             response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
 
             for identified_user in response['users']:
-                external_ids_by_email[identified_user['email']] = identified_user['external_id']
+                external_ids_by_email[identified_user['email']] = identified_user.get('external_id')
 
         logger.info(f'external ids from batch identify braze users response: {external_ids_by_email}')
         return external_ids_by_email
