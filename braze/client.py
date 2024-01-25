@@ -3,12 +3,14 @@ Braze API Client.
 """
 import datetime
 import json
+import logging
 from collections import deque
 from urllib.parse import urljoin
 
 import requests
 
 from braze.constants import (
+    GET_EXTERNAL_IDS_CHUNK_SIZE,
     REQUEST_TYPE_GET,
     REQUEST_TYPE_POST,
     TRACK_USER_COMPONENT_CHUNK_SIZE,
@@ -28,6 +30,8 @@ from .exceptions import (
     BrazeRateLimitError,
     BrazeUnauthorizedError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class BrazeClient:
@@ -135,6 +139,46 @@ class BrazeClient:
 
         return None
 
+    def get_braze_external_id_batch(self, emails, alias_label):
+        """
+        Check via /users/export/ids if the provided emails have external ids defined in Braze,
+        associated with the account via an alias.
+
+        https://www.braze.com/docs/api/endpoints/export/user_data/post_users_identifier/
+        "Up to 50 external_ids or user_aliases can be included in a single request.
+        Should you want to specify device_id or email_address
+        only one of either identifier can be included per request."
+
+        Arguments:
+            emails (list(str)): e.g. ['test1@example.com', 'test1@example.com']
+            alias_label (str): e.g. "my-business-segment-label"
+        Returns:
+            external_id (dict(str -> str): external_ids (string of lms_user_id) by email,
+              for any existing external ids.
+        """
+        external_ids_by_email = {}
+        for email_batch in self._chunks(emails, GET_EXTERNAL_IDS_CHUNK_SIZE):
+            user_aliases = [
+                {
+                    'alias_label': alias_label,
+                    'alias_name': email,
+                }
+                for email in email_batch
+            ]
+            payload = {
+                'user_aliases': user_aliases,
+                'fields_to_export': ['external_id', 'email']
+            }
+            logger.info('batch identify braze users request payload: %s', payload)
+
+            response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
+
+            for identified_user in response['users']:
+                external_ids_by_email[identified_user['email']] = identified_user['external_id']
+
+        logger.info(f'external ids from batch identify braze users response: {external_ids_by_email}')
+        return external_ids_by_email
+
     def identify_users(self, aliases_to_identify):
         """
         Identify unidentified (alias-only) users.
@@ -221,12 +265,13 @@ class BrazeClient:
         user_aliases = []
         attributes = attributes or []
 
+        external_ids_by_email = self.get_braze_external_id_batch(emails, alias_label)
         for email in emails:
             user_alias = {
                 'alias_label': alias_label,
                 'alias_name': email,
             }
-            braze_external_id = self.get_braze_external_id(email)
+            braze_external_id = external_ids_by_email.get(email)
             # Adding a user alias for an existing user requires an external_id to be
             # included in the new user alias object.
             # http://web.archive.org/web/20231005191135/https://www.braze.com/docs/api/endpoints/user_data/post_user_alias#response

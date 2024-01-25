@@ -24,6 +24,10 @@ REQUEST_TYPE_GET = 'get'
 REQUEST_TYPE_POST = 'post'
 TRACK_USER_COMPONENT_CHUNK_SIZE = 75
 USER_ALIAS_CHUNK_SIZE = 50
+
+# https://www.braze.com/docs/api/endpoints/export/user_data/post_users_identifier/?tab=all%20fields
+GET_EXTERNAL_IDS_CHUNK_SIZE = 50
+
 UNSUBSCRIBED_STATE = 'unsubscribed'
 UNSUBSCRIBED_EMAILS_API_LIMIT = 500
 UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION = 'desc'

@@ -9,7 +9,12 @@ import ddt
 import responses
 
 from braze.client import BrazeClient
-from braze.constants import UNSUBSCRIBED_EMAILS_API_LIMIT, UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION, BrazeAPIEndpoints
+from braze.constants import (
+    GET_EXTERNAL_IDS_CHUNK_SIZE,
+    UNSUBSCRIBED_EMAILS_API_LIMIT,
+    UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
+    BrazeAPIEndpoints,
+)
 from braze.exceptions import (
     BrazeBadRequestError,
     BrazeClientError,
@@ -247,11 +252,12 @@ class BrazeClientTests(TestCase):
         Tests that calls to to /users/alias/new and /users/track are not made
         if a Braze user already exists for the given email.
         """
+        test_email = 'test@example.com'
         existing_enternal_id = '1'
         responses.add(
             responses.POST,
             self.EXPORT_ID_URL,
-            json={'users': [{'external_id': existing_enternal_id}], 'message': 'success'},
+            json={'users': [{'external_id': existing_enternal_id, 'email': test_email}], 'message': 'success'},
             status=201
         )
         responses.add(
@@ -268,7 +274,7 @@ class BrazeClientTests(TestCase):
         )
 
         self.client.create_braze_alias(
-            emails=['test@example.com'],
+            emails=[test_email],
             alias_label='alias_label',
             attributes=[]
         )
@@ -310,16 +316,17 @@ class BrazeClientTests(TestCase):
             alias_label='alias_label'
         )
 
-        create_alias_batch_size = math.ceil(len(emails) / 50)
-        track_user_batch_size = math.ceil(len(emails) / 75)
+        create_alias_num_batches = math.ceil(len(emails) / 50)
+        track_user_num_batches = math.ceil(len(emails) / 75)
+        identify_users_num_batches = math.ceil(len(emails) / GET_EXTERNAL_IDS_CHUNK_SIZE)
 
-        assert len(responses.calls) == len(emails) + create_alias_batch_size + track_user_batch_size
+        assert len(responses.calls) == identify_users_num_batches + create_alias_num_batches + track_user_num_batches
         export_id_calls = [call for call in responses.calls if call.request.url == self.EXPORT_ID_URL]
         new_alias_calls = [call for call in responses.calls if call.request.url == self.NEW_ALIAS_URL]
         track_user_calls = [call for call in responses.calls if call.request.url == self.USERS_TRACK_URL]
-        assert len(export_id_calls) == len(emails)
-        assert len(new_alias_calls) == create_alias_batch_size
-        assert len(track_user_calls) == track_user_batch_size
+        assert len(export_id_calls) == identify_users_num_batches
+        assert len(new_alias_calls) == create_alias_num_batches
+        assert len(track_user_calls) == track_user_num_batches
 
     @ddt.data(
         {'emails': [], 'subject': 'subject', 'body': 'body', 'from_email': 'support@email.com'},

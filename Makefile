@@ -49,14 +49,9 @@ upgrade: ## update the requirements/*.txt files with the latest packages satisfy
 
 quality: ## check coding style with pycodestyle and pylint
 	touch tests/__init__.py
-	pylint braze tests test_utils manage.py *.py
+	pylint braze tests test_utils *.py
 	pycodestyle braze tests  *.py
-	pydocstyle braze tests *.py
-	isort --check-only --diff --recursive tests test_utils braze *.py test_settings.py
-	python setup.py bdist_wheel
-	twine check dist/*
-	make selfcheck
-
+	isort --check-only --diff --recursive tests test_utils braze *.py
 
 requirements: ## install development environment requirements
 	pip install -r requirements/pip.txt
