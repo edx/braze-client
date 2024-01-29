@@ -177,7 +177,10 @@ class BrazeClient:
             response = self._make_request(payload, BrazeAPIEndpoints.EXPORT_IDS, REQUEST_TYPE_POST)
 
             for identified_user in response['users']:
-                external_ids_by_email[identified_user['email']] = identified_user.get('external_id')
+                identified_email = identified_user.get('email')
+                external_id = identified_user.get('external_id')
+                if identified_email and external_id:
+                    external_ids_by_email[identified_email] = external_id
 
         logger.info(f'external ids from batch identify braze users response: {external_ids_by_email}')
         return external_ids_by_email
