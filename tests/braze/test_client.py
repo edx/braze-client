@@ -257,7 +257,14 @@ class BrazeClientTests(TestCase):
         responses.add(
             responses.POST,
             self.EXPORT_ID_URL,
-            json={'users': [{'external_id': existing_enternal_id, 'email': test_email}], 'message': 'success'},
+            json={
+                'users': [
+                    {'external_id': existing_enternal_id, 'email': test_email},
+                    {'external_id': '123'},
+                    {},
+                ],
+                'message': 'success'
+            },
             status=201
         )
         responses.add(
