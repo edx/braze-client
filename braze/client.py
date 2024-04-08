@@ -94,18 +94,19 @@ class BrazeClient:
         except requests.exceptions.HTTPError as exc:
             # https://www.braze.com/docs/api/errors/#fatal-errors
             status_code = exc.response.status_code
+            response_content = exc.response.text
 
             if status_code == 400:
-                raise BrazeBadRequestError from exc
+                raise BrazeBadRequestError(response_content) from exc
 
             if status_code == 401:
-                raise BrazeUnauthorizedError from exc
+                raise BrazeUnauthorizedError(response_content) from exc
 
             if status_code == 403:
-                raise BrazeForbiddenError from exc
+                raise BrazeForbiddenError(response_content) from exc
 
             if status_code == 404:
-                raise BrazeNotFoundError from exc
+                raise BrazeNotFoundError(response_content) from exc
 
             if status_code == 429:
                 headers = exc.response.headers
@@ -114,7 +115,7 @@ class BrazeClient:
                 raise BrazeRateLimitError(reset_epoch_s) from exc
 
             if str(status_code).startswith('5'):
-                raise BrazeInternalServerError from exc
+                raise BrazeInternalServerError(response_content) from exc
 
             raise BrazeClientError from exc
 
