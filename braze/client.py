@@ -11,6 +11,7 @@ import requests
 
 from braze.constants import (
     GET_EXTERNAL_IDS_CHUNK_SIZE,
+    MAX_NUM_IDENTIFY_USERS_ALIASES,
     REQUEST_TYPE_GET,
     REQUEST_TYPE_POST,
     TRACK_USER_COMPONENT_CHUNK_SIZE,
@@ -211,7 +212,7 @@ class BrazeClient:
 
     def create_recipients(self, alias_label, user_id_by_email, trigger_properties_by_email=None):
         """
-        Create a recipient object using the given the dictionary, `user_id_by_email`
+        Create a recipient object using the dictionary, `user_id_by_email`
         containing the user_email key and `lms_user_id` value.
         Identifies a list of given email addresess with any existing Braze alias records
         via the provided ``lms_user_id``.
@@ -234,7 +235,7 @@ class BrazeClient:
                                                 Default is None
 
         Raises:
-        - `BrazeClientError`: if the number of enntries in `user_id_by_email` exceeds 50.
+        - `BrazeClientError`: if the number of entries in `user_id_by_email` exceeds 50.
 
         Returns:
         - Dict: A dictionary where the key is the `user_email` (str) and the value is the metadata
@@ -254,7 +255,7 @@ class BrazeClient:
                     },
                 )
         """
-        if len(user_id_by_email) > GET_EXTERNAL_IDS_CHUNK_SIZE:
+        if len(user_id_by_email) > MAX_NUM_IDENTIFY_USERS_ALIASES:
             msg = "Max recipient limit reached."
             raise BrazeClientError(msg)
 

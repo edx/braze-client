@@ -11,6 +11,7 @@ import responses
 from braze.client import BrazeClient
 from braze.constants import (
     GET_EXTERNAL_IDS_CHUNK_SIZE,
+    MAX_NUM_IDENTIFY_USERS_ALIASES,
     UNSUBSCRIBED_EMAILS_API_LIMIT,
     UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
     BrazeAPIEndpoints,
@@ -195,7 +196,11 @@ class BrazeClientTests(TestCase):
         assert recipients == mock_expected_recipients
 
     def test_create_recipients_exceed_max_emails(self):
-        mock_exceed_email_length = generate_emails_and_ids(GET_EXTERNAL_IDS_CHUNK_SIZE + 10)
+        """
+        Tests the maximum number of emails allowed per identify_users call
+        used within this function.
+        """
+        mock_exceed_email_length = generate_emails_and_ids(MAX_NUM_IDENTIFY_USERS_ALIASES + 10)
         try:
             self.client.create_recipients(
                 alias_label='Enterprise',
@@ -206,6 +211,10 @@ class BrazeClientTests(TestCase):
 
     @responses.activate
     def test_create_recipients_none_type_trigger_properties(self):
+        """
+        Tests that when trigger_properties_by_email is not a defined parameter,
+        its output is transformed into an empty dictionary.
+        """
         responses.add(
             responses.POST,
             self.USERS_IDENTIFY_URL,
@@ -220,11 +229,9 @@ class BrazeClientTests(TestCase):
         recipients = self.client.create_recipients(
             alias_label='Enterprise',
             user_id_by_email=mock_user_id_by_email,
-            trigger_properties_by_email=None,
         )
 
         for _, metadata in recipients.items():
-            print(metadata)
             assert metadata.get('trigger_properties') == {}
 
     def test_track_user_bad_args(self):
