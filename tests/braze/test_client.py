@@ -11,6 +11,7 @@ import responses
 from braze.client import BrazeClient
 from braze.constants import (
     GET_EXTERNAL_IDS_CHUNK_SIZE,
+    MAX_NUM_IDENTIFY_USERS_ALIASES,
     UNSUBSCRIBED_EMAILS_API_LIMIT,
     UNSUBSCRIBED_EMAILS_API_SORT_DIRECTION,
     BrazeAPIEndpoints,
@@ -24,6 +25,7 @@ from braze.exceptions import (
     BrazeRateLimitError,
     BrazeUnauthorizedError,
 )
+from test_utils.utils import generate_emails_and_ids
 
 
 @ddt.ddt
@@ -141,6 +143,96 @@ class BrazeClientTests(TestCase):
         assert len(responses.calls) == 1
         assert responses.calls[0].request.url == self.USERS_IDENTIFY_URL
         assert responses.calls[0].request.body == json.dumps(expected_body)
+
+    @responses.activate
+    def test_create_recipients_happy_path(self):
+        """
+        Tests create recipients with multiple user emails
+        """
+        responses.add(
+            responses.POST,
+            self.USERS_IDENTIFY_URL,
+            json={'message': 'success'},
+            status=201
+        )
+
+        mock_user_id_by_email = {
+            "test_email_1@example.com": 12345,
+            "test_email_2@example.com": 56789,
+        }
+        mock_trigger_properties_by_email = {
+            "test_email_1@example.com": {
+                'test_property_name': True
+            },
+            "test_email_3@example.com": {
+                'test_property_address': True
+            },
+        }
+        mock_expected_recipients = {
+                email: {
+                    'external_user_id': lms_user_id,
+                    'attributes': {
+                        'user_alias': {
+                            'alias_label': 'Enterprise',
+                            'alias_name': email
+                        },
+                        'email': email,
+                        'is_enterprise_learner': True,
+                        '_update_existing_only': False,
+                    },
+                    'send_to_existing_only': False,
+                    'trigger_properties': mock_trigger_properties_by_email.get(email, {})
+
+                }
+                for email, lms_user_id in mock_user_id_by_email.items()
+        }
+        recipients = self.client.create_recipients(
+            alias_label='Enterprise',
+            user_id_by_email=mock_user_id_by_email,
+            trigger_properties_by_email=mock_trigger_properties_by_email,
+        )
+
+        assert len(recipients) == 2
+        assert recipients == mock_expected_recipients
+
+    def test_create_recipients_exceed_max_emails(self):
+        """
+        Tests the maximum number of emails allowed per identify_users call
+        used within this function.
+        """
+        mock_exceed_email_length = generate_emails_and_ids(MAX_NUM_IDENTIFY_USERS_ALIASES + 10)
+        try:
+            self.client.create_recipients(
+                alias_label='Enterprise',
+                user_id_by_email=mock_exceed_email_length,
+            )
+        except BrazeClientError as error:
+            assert str(error) == "Max recipient limit reached."
+
+    @responses.activate
+    def test_create_recipients_none_type_trigger_properties(self):
+        """
+        Tests that when trigger_properties_by_email is not a defined parameter,
+        its output is transformed into an empty dictionary.
+        """
+        responses.add(
+            responses.POST,
+            self.USERS_IDENTIFY_URL,
+            json={'message': 'success'},
+            status=201
+        )
+        mock_user_id_by_email = {
+            "test_email_1@example.com": 12345,
+            "test_email_2@example.com": 56789,
+        }
+
+        recipients = self.client.create_recipients(
+            alias_label='Enterprise',
+            user_id_by_email=mock_user_id_by_email,
+        )
+
+        for _, metadata in recipients.items():
+            assert metadata.get('trigger_properties') == {}
 
     def test_track_user_bad_args(self):
         """

@@ -11,6 +11,7 @@ import requests
 
 from braze.constants import (
     GET_EXTERNAL_IDS_CHUNK_SIZE,
+    MAX_NUM_IDENTIFY_USERS_ALIASES,
     REQUEST_TYPE_GET,
     REQUEST_TYPE_POST,
     TRACK_USER_COMPONENT_CHUNK_SIZE,
@@ -208,6 +209,96 @@ class BrazeClient:
         }
 
         return self._make_request(payload, BrazeAPIEndpoints.IDENTIFY_USERS, REQUEST_TYPE_POST)
+
+    def create_recipients(self, alias_label, user_id_by_email, trigger_properties_by_email=None):
+        """
+        Create a recipient object using the dictionary, `user_id_by_email`
+        containing the user_email key and `lms_user_id` value.
+        Identifies a list of given email addresess with any existing Braze alias records
+        via the provided ``lms_user_id``.
+
+        https://www.braze.com/docs/api/objects_filters/user_alias_object
+        The user_alias objects requires a passed in alias_label.
+
+        https://www.braze.com/docs/api/endpoints/user_data/post_user_identify/
+        The maximum email/user_id dictionary limit is 50, any length beyond 50 will raise an error.
+
+        The trigger properties default to None and return as an empty dictionary if no individualized
+        trigger property is set based on the email.
+
+        Arguments:
+        - `alias_label` (str): The alias label of the user
+        - `user_id_by_email` (dict):  A dictionary where the key is the user's email (str)
+                                    and the value is the `lms_user_id` (int).
+        - `trigger_properties_by_email` (dict) : A dictionary where the key is the user's email (str)
+                                                and the value are the `trigger_properties` (dict)
+                                                Default is None
+
+        Raises:
+        - `BrazeClientError`: if the number of entries in `user_id_by_email` exceeds 50.
+
+        Returns:
+        - Dict: A dictionary where the key is the `user_email` (str) and the value is the metadata
+                relating to the braze recipient.
+
+        Example: create_recipients(
+                    'alias_label'='Enterprise',
+                    'user_id_by_email'= {
+                        'hamzah@example.com': 123,
+                        'alex@example.com': 231,
+                    },
+                    'trigger_properties_by_email'= {
+                        'hamzah@example.com': {
+                            'foo':'bar'
+                        },
+                        'alex@example.com': {}
+                    },
+                )
+        """
+        if len(user_id_by_email) > MAX_NUM_IDENTIFY_USERS_ALIASES:
+            msg = "Max recipient limit reached."
+            raise BrazeClientError(msg)
+
+        if trigger_properties_by_email is None:
+            trigger_properties_by_email = {}
+
+        user_aliases_by_email = {
+                email: {
+                    "alias_label": alias_label,
+                    "alias_name": email,
+                }
+                for email in user_id_by_email
+        }
+        # Identify the user alias in case it already exists. This is necessary so
+        # we don't accidently create a duplicate Braze profile.
+        self.identify_users([
+            {
+                'external_id': lms_user_id,
+                'user_alias': user_aliases_by_email.get(email)
+            }
+            for email, lms_user_id in user_id_by_email.items()
+        ])
+
+        attributes_by_email = {
+            email: {
+                "user_alias": user_aliases_by_email.get(email),
+                "email": email,
+                "is_enterprise_learner": True,
+                "_update_existing_only": False,
+            }
+            for email in user_id_by_email
+        }
+
+        return {
+            email: {
+                'external_user_id': lms_user_id,
+                'attributes': attributes_by_email.get(email),
+                # If a profile does not already exist, Braze will create a new profile before sending a message.
+                'send_to_existing_only': False,
+                'trigger_properties': trigger_properties_by_email.get(email, {}),
+            }
+            for email, lms_user_id in user_id_by_email.items()
+        }
 
     def track_user(
         self,
