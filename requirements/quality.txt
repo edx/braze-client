@@ -120,7 +120,7 @@ pytest-cov==3.0.0
     # via -r requirements/test.txt
 python-slugify==5.0.2
     # via code-annotations
-pyyaml==6.0
+pyyaml==6.0.1
     # via code-annotations
 readme-renderer==30.0
     # via twine
