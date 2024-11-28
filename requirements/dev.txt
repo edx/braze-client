@@ -269,9 +269,6 @@ tomli==1.2.1
 tox==3.24.4
     # via
     #   -r requirements/ci.txt
-    #   tox-battery
-tox-battery==0.6.1
-    # via -r requirements/dev.in
 tqdm==4.62.3
     # via
     #   -r requirements/quality.txt
