@@ -36,20 +36,48 @@ def load_requirements(*requirements_paths):
     """
     # UPDATED VIA SEMGREP - if you need to remove/modify this method remove this line and add a comment specifying why.
 
+    # e.g. {"django": "Django", "confluent-kafka": "confluent_kafka[avro]"}
+    by_canonical_name = {}
+
+    def check_name_consistent(package):
+        """
+        Raise exception if package is named different ways.
+
+        This ensures that packages are named consistently so we can match
+        constraints to packages. It also ensures that if we require a package
+        with extras we don't constrain it without mentioning the extras (since
+        that too would interfere with matching constraints.)
+        """
+        canonical = package.lower().replace('_', '-').split('[')[0]
+        seen_spelling = by_canonical_name.get(canonical)
+        if seen_spelling is None:
+            by_canonical_name[canonical] = package
+        elif seen_spelling != package:
+            raise Exception(
+                f'Encountered both "{seen_spelling}" and "{package}" in requirements '
+                'and constraints files; please use just one or the other.'
+            )
+
     requirements = {}
     constraint_files = set()
 
-    # groups "my-package-name<=x.y.z,..." into ("my-package-name", "<=x.y.z,...")
-    requirement_line_regex = re.compile(r"([a-zA-Z0-9-_.]+)([<>=][^#\s]+)?")
+    # groups "pkg<=x.y.z,..." into ("pkg", "<=x.y.z,...")
+    re_package_name_base_chars = r"a-zA-Z0-9\-_."  # chars allowed in base package name
+    # Two groups: name[maybe,extras], and optionally a constraint
+    requirement_line_regex = re.compile(
+        r"([%s]+(?:\[[%s,\s]+\])?)([<>=][^#\s]+)?"
+        % (re_package_name_base_chars, re_package_name_base_chars)
+    )
 
     def add_version_constraint_or_raise(current_line, current_requirements, add_if_not_present):
         regex_match = requirement_line_regex.match(current_line)
         if regex_match:
             package = regex_match.group(1)
             version_constraints = regex_match.group(2)
+            check_name_consistent(package)
             existing_version_constraints = current_requirements.get(package, None)
-            # it's fine to add constraints to an unconstrained package, but raise an error if there are already
-            # constraints in place
+            # It's fine to add constraints to an unconstrained package,
+            # but raise an error if there are already constraints in place.
             if existing_version_constraints and existing_version_constraints != version_constraints:
                 raise BaseException(f'Multiple constraint definitions found for {package}:'
                                     f' "{existing_version_constraints}" and "{version_constraints}".'
@@ -58,7 +86,8 @@ def load_requirements(*requirements_paths):
             if add_if_not_present or package in current_requirements:
                 current_requirements[package] = version_constraints
 
-    # process .in files and store the path to any constraint files that are pulled in
+    # Read requirements from .in files and store the path to any
+    # constraint files that are pulled in.
     for path in requirements_paths:
         with open(path) as reqs:
             for line in reqs:
@@ -106,7 +135,7 @@ CHANGELOG = open(os.path.join(os.path.dirname(__file__), 'CHANGELOG.rst'), encod
 setup(
     name='edx-braze-client',
     version=VERSION,
-    description="""Python client for interacting with Braze APIs""",
+    description="""Python app for interacting with Braze APIs""",
     long_description=README + '\n\n' + CHANGELOG,
     author='edX',
     author_email='oscm@edx.org',
@@ -114,6 +143,11 @@ setup(
     packages=[
         'braze',
     ],
+    entry_points={
+        'lms.djangoapp': [
+            'braze = braze.apps:BrazeAppConfig',
+        ],
+    },
     include_package_data=True,
     install_requires=load_requirements('requirements/base.in'),
     python_requires=">=3.8",
@@ -125,7 +159,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
 )

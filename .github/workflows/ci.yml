@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8']
-        toxenv: [quality, 'py38']
+        python-version: ['3.11', '3.12']
+        toxenv: [django42, quality]
     env:
       RUNJSHINT: true
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          python-version: '3.11'
           architecture: x64
       - run: pip install -r requirements/ci.txt
       - name: Run tox
@@ -27,8 +27,7 @@ jobs:
           TOXENV: ${{ matrix.toxenv }}
         run: tox
       - name: Run code coverage
-        if: matrix.python-version == '3.8' && matrix.toxenv=='py38'
+        if: matrix.python-version == '3.11' && matrix.toxenv=='py311-django42'
         uses: codecov/codecov-action@v3
         with:
             fail_ci_if_error: false
-
