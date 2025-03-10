@@ -14,6 +14,24 @@ Change Log
 Unreleased
 ~~~~~~~~~~
 
+[1.0.0]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[Breaking Change] converts braze library to python djangoapp
+This change converts braze library to python djangoapp
+- modified `setup.py` file
+- added `apps.py` file to configure django settings and test settings
+- added `manage.py` file
+- modified `pylintrc` file
+- modified `tox.ini` file that uses python 3.11, 3.12 django 4.2 now as env
+- modified `makefile`
+- upgraded requirements with python 3.11
+  - added `django`, `edx-django-utils` and `requests` packages in `base.in` file.
+  - removed `tox-battery` package from `dev.in` file as it was only required by python library and now braze-client is converted from python library to python djangoapp(plugin)
+- update github workflows
+  - update CI workflow to use remove python 3.8 and use python 3.11, 3.12 and django4.2
+  - update publish workflow to use python 3.11 instead 3.8
+- bump version
+
 [0.2.5]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 chore: Updates version

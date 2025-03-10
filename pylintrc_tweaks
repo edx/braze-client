@@ -6,3 +6,4 @@ load-plugins = edx_lint.pylint,pylint_celery
 [MESSAGES CONTROL]
 disable+ =
     consider-using-with,
+    too-many-positional-arguments,
