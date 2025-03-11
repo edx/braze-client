@@ -136,7 +136,7 @@ setup(
     name='edx-braze-client',
     version=VERSION,
     description="""Python app for interacting with Braze APIs""",
-    long_description=README + '\n\n' + CHANGELOG,
+    long_description="""Python app for interacting with Braze APIs, read the README and CHANGELOG.""",
     author='edX',
     author_email='oscm@edx.org',
     url='https://github.com/edx/braze-client',
