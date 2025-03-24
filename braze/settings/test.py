@@ -33,3 +33,6 @@ INSTALLED_APPS = (
 )
 
 SECRET_KEY = 'fake-secret-key'
+EDX_BRAZE_API_KEY = 'test_braze_key'
+EDX_BRAZE_API_SERVER = 'https://braze.com'
+BRAZE_COURSE_ENROLLMENT_CANVAS_ID = "test_canvas_id"
