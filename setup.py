@@ -147,6 +147,9 @@ setup(
         'lms.djangoapp': [
             'braze = braze.apps:BrazeAppConfig',
         ],
+        'cms.djangoapp': [
+            'braze = braze.apps:BrazeAppConfig',
+        ],
     },
     include_package_data=True,
     install_requires=load_requirements('requirements/base.in'),

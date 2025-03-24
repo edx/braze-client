@@ -16,12 +16,14 @@ class BrazeAppConfig(AppConfig):
     plugin_app = {
         PluginSettings.CONFIG: {
             'lms.djangoapp': {
-                'common': {
-                    PluginSettings.RELATIVE_PATH: 'settings.common',
-                },
-                'production': {
-                    PluginSettings.RELATIVE_PATH: 'settings.production',
-                },
-            }
+                'common': {PluginSettings.RELATIVE_PATH: 'settings.common'},
+                'production': {PluginSettings.RELATIVE_PATH: 'settings.production'},
+                'devstack': {PluginSettings.RELATIVE_PATH: 'settings.devstack'},
+            },
+            'cms.djangoapp': {
+                'common': {PluginSettings.RELATIVE_PATH: 'settings.common'},
+                'production': {PluginSettings.RELATIVE_PATH: 'settings.production'},
+                'devstack': {PluginSettings.RELATIVE_PATH: 'settings.devstack'},
+            },
         },
     }
