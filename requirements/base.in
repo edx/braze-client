@@ -4,4 +4,3 @@
 Django              # Web application framework
 edx-django-utils
 requests
-edx-ace

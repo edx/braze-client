@@ -150,9 +150,6 @@ setup(
         'cms.djangoapp': [
             'braze = braze.apps:BrazeAppConfig',
         ],
-        'openedx.ace.channel': [
-            'braze_push = braze.ace_channel.braze_push_channel:BrazePushNotificationChannel'
-        ],
     },
     include_package_data=True,
     install_requires=load_requirements('requirements/base.in'),
