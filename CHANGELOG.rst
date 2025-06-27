@@ -14,6 +14,10 @@ Change Log
 Unreleased
 ~~~~~~~~~~
 
+[1.1.1]
+^^^^^^^
+- Adds edx-ace Channel for Braze messages
+
 [1.0.0]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 [Breaking Change] converts braze library to python djangoapp
