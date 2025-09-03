@@ -36,7 +36,7 @@ class BrazePushNotificationChannel(Channel):
             rendered_message: The rendered content of the message that has been personalized
                 for this particular recipient.
         """
-        notification_type = message.options['notification_type']
+        notification_type = message.options.get('notification_type')
         emails = message.options.get('emails') or [message.recipient.email_address]
         campaign_id = self._campaign_id(notification_type)
         if not campaign_id:
@@ -47,7 +47,7 @@ class BrazePushNotificationChannel(Channel):
             braze_client = self.get_braze_client()
             braze_client.send_campaign_message(
                 campaign_id=campaign_id,
-                trigger_properties=message.context['post_data'],
+                trigger_properties=message.context.get('post_data'),
                 emails=emails
             )
             LOG.info('Sent push notification for %s with Braze', notification_type)
