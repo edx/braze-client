@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.11', '3.12']
-        toxenv: [django42, quality]
+        toxenv: [django42, django52, quality]
     env:
       RUNJSHINT: true
     steps:
@@ -27,7 +27,7 @@ jobs:
           TOXENV: ${{ matrix.toxenv }}
         run: tox
       - name: Run code coverage
-        if: matrix.python-version == '3.11' && matrix.toxenv=='py311-django42'
+        if: matrix.python-version == '3.11' && (matrix.toxenv == 'py311-django42' || matrix.toxenv == 'py311-django52')
         uses: codecov/codecov-action@v3
         with:
             fail_ci_if_error: false
