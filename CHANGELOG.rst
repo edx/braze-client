@@ -14,6 +14,10 @@ Change Log
 Unreleased
 ~~~~~~~~~~
 
+[1.1.4]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Added Django 5.2 test coverage in tox and CI.
+
 [1.1.1]
 ^^^^^^^
 - Adds edx-ace Channel for Braze messages
